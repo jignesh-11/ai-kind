@@ -1,0 +1,41 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "9a73aa0cd04d00bbfe02e54805efd118"
+name = "jignesh-bpe"
+application_url = "https://alternatively-postcard-specify-magic.trycloudflare.com"
+embedded = true
+handle = "jignesh-bpe"
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = [
+  "app/uninstalled",
+  "products/create",
+  "products/delete",
+  "products/update"
+]
+  uri = "/webhooks"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_products,write_products"
+
+[auth]
+redirect_urls = [
+  "https://alternatively-postcard-specify-magic.trycloudflare.com/auth/callback",
+  "https://alternatively-postcard-specify-magic.trycloudflare.com/auth/shopify/callback",
+  "https://alternatively-postcard-specify-magic.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false
