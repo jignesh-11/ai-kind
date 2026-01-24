@@ -1,4 +1,3 @@
-import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
 
 /**
