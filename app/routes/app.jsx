@@ -28,6 +28,9 @@ export default function App() {
         <Link to="/app/seo">
           SEO Generator
         </Link>
+        <Link to="/app/plans">
+          Plans & Billing
+        </Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

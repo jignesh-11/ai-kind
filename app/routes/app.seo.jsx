@@ -8,20 +8,67 @@ import {
   Box,
   TextField,
   InlineStack,
-  EmptyState
+  EmptyState,
+  IndexTable,
+  Thumbnail,
+  Pagination,
+  Banner
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { ArrowLeftIcon } from "@shopify/polaris-icons";
 import { useState, useEffect } from "react";
 import { json } from "@remix-run/node";
-import { useActionData, useNavigation, useSubmit } from "@remix-run/react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useActionData, useNavigation, useSubmit, useLoaderData } from "@remix-run/react";
+import { generateContentSafe } from "../gemini.server";
+import { checkAndChargeUsage } from "../billing.server";
 import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
+  const { admin, billing, session } = await authenticate.admin(request);
+  /* Billing disabled until app is public
+  await billing.require({
+    plans: ["Growth"],
+    isTest: true,
+    onFailure: async () => billing.request({
+      plan: "Growth",
+      isTest: true,
+      returnUrl: `https://${new URL(request.url).hostname}/app/seo`,
+    }),
+  });
+  */
+
+  const response = await admin.graphql(
+    `#graphql
+    query getProducts {
+      products(first: 20, sortKey: TITLE) {
+        nodes {
+          id
+          title
+          featuredImage {
+            url
+            altText
+          }
+          seo {
+            title
+            description
+          }
+        }
+      }
+    }`
+  );
+  const responseJson = await response.json();
+
+  const usage = await prisma.usageStat.findUnique({
+    where: { shop: session.shop }
+  });
+
+  return json({
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    products: responseJson.data.products.nodes,
+    usageCount: usage?.monthlyUsageCount || 0,
+    credits: usage?.credits || 0
+  });
 };
 
 export const action = async ({ request }) => {
@@ -47,7 +94,7 @@ export const action = async ({ request }) => {
     );
     const responseJson = await response.json();
     const product = responseJson.data.product;
-    return json({ 
+    return json({
       productTitle: product.title,
       productDescription: product.description, // Plain text description for context
       currentSeoTitle: product.seo?.title || "",
@@ -60,9 +107,7 @@ export const action = async ({ request }) => {
     const productDescription = formData.get("productDescription");
     const keywords = formData.get("keywords");
 
-    if (!process.env.GEMINI_API_KEY) {
-      return json({ error: "Server configuration error: API key missing." }, { status: 500 });
-    }
+    // Key check handled by getGeminiModel
 
     const prompt = `
 You are an SEO Expert for Shopify stores.
@@ -87,31 +132,32 @@ Generate JSON:
 `;
 
     try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      
-      // Clean up markdown code blocks if present
-      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const seoData = JSON.parse(cleanText);
-      
-      // Update stats
+      // Pre-check Billing/Update Stats
       if (prisma && prisma.usageStat) {
         const { session } = await authenticate.admin(request);
+
+        // This will throw if no free credits AND no active plan
+        await checkAndChargeUsage(admin, session.shop, 1);
+
         await prisma.usageStat.upsert({
           where: { shop: session.shop },
           update: { seoGenerated: { increment: 1 } },
           create: { shop: session.shop, seoGenerated: 1 }
         });
-      } else {
-        console.warn("Skipping stats update: prisma.usageStat is undefined");
       }
+
+      const text = await generateContentSafe(prompt);
+
+      // Clean up markdown code blocks if present
+      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const seoData = JSON.parse(cleanText);
 
       return json({ generatedSeo: seoData });
     } catch (error) {
       console.error("Gemini API Error:", error);
+      if (error.message.includes("No active billing plan")) {
+        return json({ error: error.message }, { status: 402 });
+      }
       return json({ error: `Failed to generate SEO. Error: ${error.message}` }, { status: 500 });
     }
   }
@@ -150,7 +196,7 @@ Generate JSON:
         }
       }
     );
-    
+
     const responseJson = await response.json();
     if (responseJson.data.productUpdate.userErrors.length > 0) {
       return json({ error: responseJson.data.productUpdate.userErrors[0].message }, { status: 400 });
@@ -163,20 +209,21 @@ Generate JSON:
 
 export default function SeoGenerator() {
   const actionData = useActionData();
+  const loaderData = useLoaderData();
   const navigation = useNavigation();
   const submit = useSubmit();
   const shopify = useAppBridge();
-  
+
   const [productId, setProductId] = useState("");
   const [productTitle, setProductTitle] = useState("");
   const [productDescription, setProductDescription] = useState("");
-  
+
   const [currentSeoTitle, setCurrentSeoTitle] = useState("");
   const [currentSeoDescription, setCurrentSeoDescription] = useState("");
-  
+
   const [generatedSeoTitle, setGeneratedSeoTitle] = useState("");
   const [generatedSeoDescription, setGeneratedSeoDescription] = useState("");
-  
+
   const [keywords, setKeywords] = useState("");
 
   const isLoading = navigation.state === "submitting";
@@ -206,30 +253,18 @@ export default function SeoGenerator() {
       setGeneratedSeoTitle("");
       setGeneratedSeoDescription("");
     }
-    
+
     if (actionData?.error) {
       shopify.toast.show(actionData.error, { isError: true });
     }
   }, [actionData, shopify, generatedSeoTitle, generatedSeoDescription]);
 
-  const selectProduct = async () => {
-    const selection = await shopify.resourcePicker({
-      type: 'product',
-      filter: {
-        variants: false
-      },
-      multiple: false, // Start with single mode for simplicity
-      action: 'select'
-    });
-    
-    if (selection && selection.length > 0) {
-      const id = selection[0].id;
-      setProductId(id);
-      const formData = new FormData();
-      formData.append("intent", "fetch");
-      formData.append("productId", id);
-      submit(formData, { method: "post" });
-    }
+  const selectProduct = (id) => {
+    setProductId(id);
+    const formData = new FormData();
+    formData.append("intent", "fetch");
+    formData.append("productId", id);
+    submit(formData, { method: "post" });
   };
 
   const handleGenerate = () => {
@@ -250,10 +285,35 @@ export default function SeoGenerator() {
     submit(formData, { method: "post" });
   };
 
+  const credits = loaderData?.credits || 0;
+
+  const [showBanner, setShowBanner] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hidePaidBanner') !== 'true';
+    }
+    return true;
+  });
+
+  const handleDismissBanner = () => {
+    setShowBanner(false);
+    localStorage.setItem('hidePaidBanner', 'true');
+  };
+
   return (
     <Page>
       <TitleBar title="AI SEO Generator" />
       <BlockStack gap="500">
+        {credits > 0 ? (
+          <Banner tone="success" title="Using Free Credits">
+            <p>You have <strong>{credits}</strong> free credits remaining. This generation is free.</p>
+          </Banner>
+        ) : (
+          showBanner && (
+            <Banner tone="info" title="Paid Usage Active" onDismiss={handleDismissBanner}>
+              <p>You have used all free credits. This generation will cost <strong>$0.015</strong>.</p>
+            </Banner>
+          )
+        )}
         <Layout>
           <Layout.Section>
             {productId ? (
@@ -261,8 +321,8 @@ export default function SeoGenerator() {
                 <BlockStack gap="500">
                   <InlineStack align="space-between" blockAlign="center">
                     <InlineStack gap="300" blockAlign="center">
-                      <Button 
-                        icon={ArrowLeftIcon} 
+                      <Button
+                        icon={ArrowLeftIcon}
                         onClick={() => {
                           setProductId("");
                           setProductTitle("");
@@ -272,14 +332,14 @@ export default function SeoGenerator() {
                           setGeneratedSeoTitle("");
                           setGeneratedSeoDescription("");
                           setKeywords("");
-                        }} 
-                        accessibilityLabel="Back" 
+                        }}
+                        accessibilityLabel="Back"
                       />
                       <Text as="h2" variant="headingMd">
                         {`Editing SEO: ${productTitle}`}
                       </Text>
                     </InlineStack>
-                    <Button onClick={selectProduct}>
+                    <Button onClick={() => setProductId("")}>
                       Change Product
                     </Button>
                   </InlineStack>
@@ -309,9 +369,9 @@ export default function SeoGenerator() {
                     />
                   </BlockStack>
 
-                  <Button 
-                    variant="primary" 
-                    onClick={handleGenerate} 
+                  <Button
+                    variant="primary"
+                    onClick={handleGenerate}
                     loading={isLoading}
                   >
                     Generate Optimized SEO
@@ -341,8 +401,8 @@ export default function SeoGenerator() {
                           helpText={`${generatedSeoDescription.length}/160 characters`}
                         />
                         <InlineStack align="end" gap="300">
-                           <Button onClick={() => { setGeneratedSeoTitle(""); setGeneratedSeoDescription(""); }}>Discard</Button>
-                           <Button variant="primary" onClick={handleSave} loading={isLoading}>Save to Product</Button>
+                          <Button disabled={isLoading} onClick={() => { setGeneratedSeoTitle(""); setGeneratedSeoDescription(""); }}>Discard</Button>
+                          <Button variant="primary" onClick={handleSave} loading={isLoading}>Save to Product</Button>
                         </InlineStack>
                       </BlockStack>
                     </Box>
@@ -351,13 +411,48 @@ export default function SeoGenerator() {
               </Card>
             ) : (
               <Card>
-                <EmptyState
-                  heading="Optimize your Product SEO"
-                  action={{ content: 'Select Product', onAction: selectProduct }}
-                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                >
-                  <p>Select a product to automatically generate high-ranking SEO titles and meta descriptions.</p>
-                </EmptyState>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">Select a Product</Text>
+                  <IndexTable
+                    resourceName={{ singular: 'product', plural: 'products' }}
+                    itemCount={loaderData?.products?.length || 0}
+                    headings={[
+                      { title: 'Image' },
+                      { title: 'Product' },
+                      { title: 'Current SEO' },
+                      { title: 'Action' },
+                    ]}
+                    selectable={false}
+                  >
+                    {loaderData?.products?.map((product, index) => (
+                      <IndexTable.Row id={product.id} key={product.id} position={index}>
+                        <IndexTable.Cell>
+                          <Thumbnail
+                            source={product.featuredImage?.url || ""}
+                            alt={product.featuredImage?.altText || product.title}
+                            size="small"
+                          />
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Text fontWeight="bold" as="span">{product.title}</Text>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <BlockStack gap="100">
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {product.seo?.title ? 'Title Set' : 'Missing Title'}
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {product.seo?.description ? 'Desc Set' : 'Missing Desc'}
+                            </Text>
+                          </BlockStack>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Button size="slim" onClick={() => selectProduct(product.id)}>Optimize</Button>
+                        </IndexTable.Cell>
+                      </IndexTable.Row>
+                    ))}
+                  </IndexTable>
+                </BlockStack>
               </Card>
             )}
           </Layout.Section>

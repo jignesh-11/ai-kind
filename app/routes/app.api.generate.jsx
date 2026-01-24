@@ -1,12 +1,23 @@
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentSafe } from "../gemini.server";
+import { checkAndChargeUsage } from "../billing.server";
 import prisma from "../db.server";
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session, billing } = await authenticate.admin(request);
+  /* Billing disabled until app is public
+  await billing.require({
+    plans: ["Growth"],
+    isTest: true,
+    onFailure: async () => {
+      throw new Response("Billing required", { status: 402 });
+    }
+  });
+  */
+
   const formData = await request.formData();
-  
+
   const productTitle = formData.get("productTitle");
   const productDescription = formData.get("productDescription");
   const tone = formData.get("tone");
@@ -20,11 +31,11 @@ export const action = async ({ request }) => {
 
   let prompt = "";
   if (isDescriptionEmpty) {
-      // Generate mode
-      if (!productTitle) {
-         return json({ error: "Product title is required to generate a description." }, { status: 400 });
-      }
-      prompt = `
+    // Generate mode
+    if (!productTitle) {
+      return json({ error: "Product title is required to generate a description." }, { status: 400 });
+    }
+    prompt = `
 You are building a Shopify AI Product Description Generator.
 Generate a new product description based on the product title.
 
@@ -60,9 +71,9 @@ Length Rules:
 Final Instruction:
 Generate a product description in HTML format in ${language} language. Return ONLY the HTML.
 `;
-    } else {
-      // Rewrite mode
-      prompt = `
+  } else {
+    // Rewrite mode
+    prompt = `
 You are building a Shopify AI Product Description Improver.
 This tool must rewrite existing product descriptions.
 
@@ -107,38 +118,35 @@ Custom Instructions: ${customInstructions}
 Final Instruction:
 Rewrite the provided product description HTML according to the selected tone and length in ${language} language. Return ONLY the HTML.
 `;
-    }
+  }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return json({ error: "Server configuration error: API key missing." }, { status: 500 });
-    }
+  // Key check handled by getGeminiModel
 
-    try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+  try {
+    // Pre-check Billing/Update Stats
+    if (prisma && prisma.usageStat) {
+      // This will throw if no free credits AND no active plan
+      await checkAndChargeUsage(admin, session.shop, 1);
 
-      // Update stats
-      if (prisma && prisma.usageStat) {
-        try {
-          await prisma.usageStat.upsert({
-            where: { shop: session.shop },
-            update: { descriptionsGenerated: { increment: 1 } },
-            create: { shop: session.shop, descriptionsGenerated: 1 }
-          });
-        } catch (err) {
-          console.error("Stats update failed:", err);
-        }
+      try {
+        await prisma.usageStat.upsert({
+          where: { shop: session.shop },
+          update: { descriptionsGenerated: { increment: 1 } },
+          create: { shop: session.shop, descriptionsGenerated: 1 }
+        });
+      } catch (err) {
+        console.error("Stats update failed:", err);
       }
-
-      return json({ rewritten: text });
-    } catch (error) {
-      console.error("Gemini API Error:", error);
-      if (error.status === 429 || error.message?.includes("429")) {
-        return json({ error: "AI usage limit reached. Please wait a minute and try again." }, { status: 429 });
-      }
-      return json({ error: `Failed to generate description. Error: ${error.message}` }, { status: 500 });
     }
+
+    const text = await generateContentSafe(prompt);
+
+    return json({ rewritten: text });
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    if (error.status === 429 || error.message?.includes("429")) {
+      return json({ error: "AI usage limit reached. Please wait a minute and try again." }, { status: 429 });
+    }
+    return json({ error: `Failed to generate description. Error: ${error.message}` }, { status: 500 });
+  }
 };
