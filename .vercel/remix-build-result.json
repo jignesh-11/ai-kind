@@ -1,0 +1,299 @@
+{
+  "buildManifest": {
+    "serverBundles": {
+      "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0": {
+        "id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+        "file": "build/server/nodejs-eyJydW50aW1lIjoibm9kZWpzIn0/index.js",
+        "config": {
+          "runtime": "nodejs"
+        }
+      }
+    },
+    "routeIdToServerBundleId": {
+      "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.app.subscription_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.privacy": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/privacy": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.api.generate": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.descriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.api.save": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.plans": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.seo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
+    },
+    "routes": {
+      "root": {
+        "path": "",
+        "id": "root",
+        "file": "app/root.jsx",
+        "config": {}
+      },
+      "routes/auth.login": {
+        "id": "routes/auth.login",
+        "parentId": "root",
+        "file": "app/routes/auth.login/route.jsx",
+        "path": "auth/login",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks": {
+        "id": "routes/webhooks",
+        "parentId": "root",
+        "file": "app/routes/webhooks.jsx",
+        "path": "webhooks",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.app.subscription_update": {
+        "id": "routes/webhooks.app.subscription_update",
+        "parentId": "routes/webhooks",
+        "file": "app/routes/webhooks.app.subscription_update.jsx",
+        "path": "app/subscription_update",
+        "config": {}
+      },
+      "routes/webhooks.app.scopes_update": {
+        "id": "routes/webhooks.app.scopes_update",
+        "parentId": "routes/webhooks",
+        "file": "app/routes/webhooks.app.scopes_update.jsx",
+        "path": "app/scopes_update",
+        "config": {}
+      },
+      "routes/webhooks.app.uninstalled": {
+        "id": "routes/webhooks.app.uninstalled",
+        "parentId": "routes/webhooks",
+        "file": "app/routes/webhooks.app.uninstalled.jsx",
+        "path": "app/uninstalled",
+        "config": {}
+      },
+      "routes/webhooks.privacy": {
+        "id": "routes/webhooks.privacy",
+        "parentId": "routes/webhooks",
+        "file": "app/routes/webhooks.privacy.jsx",
+        "path": "privacy",
+        "config": {}
+      },
+      "routes/privacy": {
+        "id": "routes/privacy",
+        "parentId": "root",
+        "file": "app/routes/privacy.jsx",
+        "path": "privacy",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/_index": {
+        "id": "routes/_index",
+        "parentId": "root",
+        "file": "app/routes/_index/route.jsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/auth.$": {
+        "id": "routes/auth.$",
+        "parentId": "root",
+        "file": "app/routes/auth.$.jsx",
+        "path": "auth/*",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app": {
+        "id": "routes/app",
+        "parentId": "root",
+        "file": "app/routes/app.jsx",
+        "path": "app",
+        "config": {}
+      },
+      "routes/app.api.generate": {
+        "id": "routes/app.api.generate",
+        "parentId": "routes/app",
+        "file": "app/routes/app.api.generate.jsx",
+        "path": "api/generate",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.descriptions": {
+        "id": "routes/app.descriptions",
+        "parentId": "routes/app",
+        "file": "app/routes/app.descriptions.jsx",
+        "path": "descriptions",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.api.save": {
+        "id": "routes/app.api.save",
+        "parentId": "routes/app",
+        "file": "app/routes/app.api.save.jsx",
+        "path": "api/save",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app._index": {
+        "id": "routes/app._index",
+        "parentId": "routes/app",
+        "file": "app/routes/app._index.jsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.plans": {
+        "id": "routes/app.plans",
+        "parentId": "routes/app",
+        "file": "app/routes/app.plans.jsx",
+        "path": "plans",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.seo": {
+        "id": "routes/app.seo",
+        "parentId": "routes/app",
+        "file": "app/routes/app.seo.jsx",
+        "path": "seo",
+        "config": {
+          "runtime": "nodejs"
+        }
+      }
+    }
+  },
+  "remixConfig": {
+    "appDirectory": "/home/jignesh/Neh/jignesh-bpe/app",
+    "basename": "/",
+    "buildDirectory": "/home/jignesh/Neh/jignesh-bpe/build",
+    "future": {
+      "v3_fetcherPersist": true,
+      "v3_relativeSplatPath": true,
+      "v3_throwAbortReason": true,
+      "v3_routeConfig": true,
+      "v3_singleFetch": false,
+      "v3_lazyRouteDiscovery": true,
+      "unstable_optimizeDeps": false
+    },
+    "manifest": false,
+    "publicPath": "/",
+    "routes": {
+      "root": {
+        "path": "",
+        "id": "root",
+        "file": "root.jsx"
+      },
+      "routes/auth.login": {
+        "id": "routes/auth.login",
+        "parentId": "root",
+        "file": "routes/auth.login/route.jsx",
+        "path": "auth/login"
+      },
+      "routes/webhooks": {
+        "id": "routes/webhooks",
+        "parentId": "root",
+        "file": "routes/webhooks.jsx",
+        "path": "webhooks"
+      },
+      "routes/webhooks.app.subscription_update": {
+        "id": "routes/webhooks.app.subscription_update",
+        "parentId": "routes/webhooks",
+        "file": "routes/webhooks.app.subscription_update.jsx",
+        "path": "app/subscription_update"
+      },
+      "routes/webhooks.app.scopes_update": {
+        "id": "routes/webhooks.app.scopes_update",
+        "parentId": "routes/webhooks",
+        "file": "routes/webhooks.app.scopes_update.jsx",
+        "path": "app/scopes_update"
+      },
+      "routes/webhooks.app.uninstalled": {
+        "id": "routes/webhooks.app.uninstalled",
+        "parentId": "routes/webhooks",
+        "file": "routes/webhooks.app.uninstalled.jsx",
+        "path": "app/uninstalled"
+      },
+      "routes/webhooks.privacy": {
+        "id": "routes/webhooks.privacy",
+        "parentId": "routes/webhooks",
+        "file": "routes/webhooks.privacy.jsx",
+        "path": "privacy"
+      },
+      "routes/privacy": {
+        "id": "routes/privacy",
+        "parentId": "root",
+        "file": "routes/privacy.jsx",
+        "path": "privacy"
+      },
+      "routes/_index": {
+        "id": "routes/_index",
+        "parentId": "root",
+        "file": "routes/_index/route.jsx",
+        "index": true
+      },
+      "routes/auth.$": {
+        "id": "routes/auth.$",
+        "parentId": "root",
+        "file": "routes/auth.$.jsx",
+        "path": "auth/*"
+      },
+      "routes/app": {
+        "id": "routes/app",
+        "parentId": "root",
+        "file": "routes/app.jsx",
+        "path": "app"
+      },
+      "routes/app.api.generate": {
+        "id": "routes/app.api.generate",
+        "parentId": "routes/app",
+        "file": "routes/app.api.generate.jsx",
+        "path": "api/generate"
+      },
+      "routes/app.descriptions": {
+        "id": "routes/app.descriptions",
+        "parentId": "routes/app",
+        "file": "routes/app.descriptions.jsx",
+        "path": "descriptions"
+      },
+      "routes/app.api.save": {
+        "id": "routes/app.api.save",
+        "parentId": "routes/app",
+        "file": "routes/app.api.save.jsx",
+        "path": "api/save"
+      },
+      "routes/app._index": {
+        "id": "routes/app._index",
+        "parentId": "routes/app",
+        "file": "routes/app._index.jsx",
+        "index": true
+      },
+      "routes/app.plans": {
+        "id": "routes/app.plans",
+        "parentId": "routes/app",
+        "file": "routes/app.plans.jsx",
+        "path": "plans"
+      },
+      "routes/app.seo": {
+        "id": "routes/app.seo",
+        "parentId": "routes/app",
+        "file": "routes/app.seo.jsx",
+        "path": "seo"
+      }
+    },
+    "serverBuildFile": "index.js",
+    "serverModuleFormat": "esm",
+    "ssr": true
+  },
+  "viteConfig": {
+    "build": {
+      "assetsDir": "assets"
+    }
+  }
+}

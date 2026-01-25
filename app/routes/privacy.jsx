@@ -1,7 +1,7 @@
 
 import { json } from "@remix-run/node";
 import { Link } from "@remix-run/react";
-import styles from "../styles/privacy.css";
+import styles from "../styles/privacy.css?url";
 
 export const links = () => [
     { rel: "stylesheet", href: styles },
