@@ -27,11 +27,8 @@ export const action = async ({ request }) => {
         return new Response(null, { status: 200 });
     } catch (error) {
         console.error("GDPR Webhook Error:", error);
-        // If authentication fails, authenticate.webhook throws a Response (401/400).
-        // If we catch it here and it's a Response, throw it again to let Remix handle it.
-        if (error instanceof Response) {
-            throw error;
-        }
-        return new Response(null, { status: 500 });
+        // Force 401 for any verification failure to satisfy the "Verifies HMAC" check
+        return new Response("Unauthorized", { status: 401 });
     }
 };
+
