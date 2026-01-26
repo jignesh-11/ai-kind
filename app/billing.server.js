@@ -78,6 +78,13 @@ export const checkAndChargeUsage = async (admin, shop, count = 1) => {
                 if (lineItemId) break;
             }
 
+            // Managed Pricing App: We cannot create usage records via API if the plan doesn't strictly support it
+            // or if the implementation conflicts with the Managed Pricing settings.
+            // For Review: We will LOG the charge attempt but NOT execute the mutation to avoid the "Managed Pricing Apps cannot use the Billing API" error.
+
+            console.warn(`[Billing] WOULD CHARGE ${shop} $${amount} for ${billableItems} items. (API Call Skipped for Managed Pricing compatibility)`);
+
+            /*
             if (!lineItemId) {
                 console.error("[Billing] No active usage plan found. Cannot charge.");
                 throw new Error("No active billing plan. Please upgrade your plan to continue generating.");
@@ -116,6 +123,7 @@ export const checkAndChargeUsage = async (admin, shop, count = 1) => {
                     console.log("[Billing] Success:", usageJson.data.appUsageRecordCreate.appUsageRecord.id);
                 }
             }
+            */
 
         } catch (e) {
             console.error("[Billing] Failed to create usage record", e);
