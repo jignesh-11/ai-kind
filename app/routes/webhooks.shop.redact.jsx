@@ -14,14 +14,17 @@ export const action = async ({ request }) => {
             return new Response("Unauthorized", { status: 401 });
         }
 
-        const body = await request.text();
+        // Use ArrayBuffer -> Buffer to ensure we process raw bytes exactly as received
+        const buffer = await request.arrayBuffer();
+        const rawBody = Buffer.from(buffer);
+
         const digest = crypto
             .createHmac("sha256", secret)
-            .update(body, "utf8")
+            .update(rawBody)
             .digest("base64");
 
         if (digest !== hmac) {
-            console.error(`HMAC verification failed. Expected ${digest}, got ${hmac}`);
+            console.error(`HMAC Fail: Recv [${hmac}] vs Calc [${digest}]`);
             return new Response("Unauthorized", { status: 401 });
         }
 

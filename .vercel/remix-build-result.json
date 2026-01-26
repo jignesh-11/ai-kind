@@ -11,6 +11,7 @@
     },
     "routeIdToServerBundleId": {
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/debug.env": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.subscription_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.data_request": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -40,6 +41,15 @@
         "parentId": "root",
         "file": "app/routes/auth.login/route.jsx",
         "path": "auth/login",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/debug.env": {
+        "id": "routes/debug.env",
+        "parentId": "root",
+        "file": "app/routes/debug.env.jsx",
+        "path": "debug/env",
         "config": {
           "runtime": "nodejs"
         }
@@ -211,6 +221,12 @@
         "parentId": "root",
         "file": "routes/auth.login/route.jsx",
         "path": "auth/login"
+      },
+      "routes/debug.env": {
+        "id": "routes/debug.env",
+        "parentId": "root",
+        "file": "routes/debug.env.jsx",
+        "path": "debug/env"
       },
       "routes/webhooks": {
         "id": "routes/webhooks",
