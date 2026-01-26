@@ -1,4 +1,5 @@
 import prisma from "./db.server";
+console.log("Creating Usage Record... (Version: Managed Pricing Fix 2)");
 
 export const checkAndChargeUsage = async (admin, shop, count = 1) => {
     // 1. Get or Init Usage Stats
