@@ -2,6 +2,8 @@
 import { json } from "@remix-run/node";
 import crypto from "crypto";
 
+export const loader = () => new Response("Method Not Allowed", { status: 405 });
+
 export const action = async ({ request }) => {
     try {
         const topic = request.headers.get("x-shopify-topic") || "unknown";
