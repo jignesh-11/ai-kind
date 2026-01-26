@@ -17,14 +17,7 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma, { tableName: 'session' }),
   distribution: AppDistribution.AppStore,
-  billing: {
-    "Growth": {
-      amount: 0,
-      currencyCode: "USD",
-      interval: BillingInterval.Every30Days,
-      usageTerms: "First 30 generations free per month, then $0.015 per generation.",
-    }
-  },
+
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
