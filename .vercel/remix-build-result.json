@@ -13,9 +13,11 @@
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.subscription_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.customers.data_request": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.customers.redact": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/webhooks.privacy": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.shop.redact": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/privacy": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -58,11 +60,25 @@
         "path": "app/subscription_update",
         "config": {}
       },
+      "routes/webhooks.customers.data_request": {
+        "id": "routes/webhooks.customers.data_request",
+        "parentId": "routes/webhooks",
+        "file": "app/routes/webhooks.customers.data_request.jsx",
+        "path": "customers/data_request",
+        "config": {}
+      },
       "routes/webhooks.app.scopes_update": {
         "id": "routes/webhooks.app.scopes_update",
         "parentId": "routes/webhooks",
         "file": "app/routes/webhooks.app.scopes_update.jsx",
         "path": "app/scopes_update",
+        "config": {}
+      },
+      "routes/webhooks.customers.redact": {
+        "id": "routes/webhooks.customers.redact",
+        "parentId": "routes/webhooks",
+        "file": "app/routes/webhooks.customers.redact.jsx",
+        "path": "customers/redact",
         "config": {}
       },
       "routes/webhooks.app.uninstalled": {
@@ -72,11 +88,11 @@
         "path": "app/uninstalled",
         "config": {}
       },
-      "routes/webhooks.privacy": {
-        "id": "routes/webhooks.privacy",
+      "routes/webhooks.shop.redact": {
+        "id": "routes/webhooks.shop.redact",
         "parentId": "routes/webhooks",
-        "file": "app/routes/webhooks.privacy.jsx",
-        "path": "privacy",
+        "file": "app/routes/webhooks.shop.redact.jsx",
+        "path": "shop/redact",
         "config": {}
       },
       "routes/privacy": {
@@ -208,11 +224,23 @@
         "file": "routes/webhooks.app.subscription_update.jsx",
         "path": "app/subscription_update"
       },
+      "routes/webhooks.customers.data_request": {
+        "id": "routes/webhooks.customers.data_request",
+        "parentId": "routes/webhooks",
+        "file": "routes/webhooks.customers.data_request.jsx",
+        "path": "customers/data_request"
+      },
       "routes/webhooks.app.scopes_update": {
         "id": "routes/webhooks.app.scopes_update",
         "parentId": "routes/webhooks",
         "file": "routes/webhooks.app.scopes_update.jsx",
         "path": "app/scopes_update"
+      },
+      "routes/webhooks.customers.redact": {
+        "id": "routes/webhooks.customers.redact",
+        "parentId": "routes/webhooks",
+        "file": "routes/webhooks.customers.redact.jsx",
+        "path": "customers/redact"
       },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
@@ -220,11 +248,11 @@
         "file": "routes/webhooks.app.uninstalled.jsx",
         "path": "app/uninstalled"
       },
-      "routes/webhooks.privacy": {
-        "id": "routes/webhooks.privacy",
+      "routes/webhooks.shop.redact": {
+        "id": "routes/webhooks.shop.redact",
         "parentId": "routes/webhooks",
-        "file": "routes/webhooks.privacy.jsx",
-        "path": "privacy"
+        "file": "routes/webhooks.shop.redact.jsx",
+        "path": "shop/redact"
       },
       "routes/privacy": {
         "id": "routes/privacy",
