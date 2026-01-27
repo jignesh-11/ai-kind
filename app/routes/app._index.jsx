@@ -1,12 +1,37 @@
 import { useEffect } from "react";
 import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, Grid, List } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
-// ... imports
-// ... imports
+import { SearchIcon, MagicIcon } from "@shopify/polaris-icons";
+import { useLoaderData, useNavigate } from "@remix-run/react";
+import { json } from "@remix-run/node";
+import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 
-// ... inside Dashboard component
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  
+  if (!prisma) {
+    console.error("Prisma client is undefined");
+    return json({ descriptionsGenerated: 0, seoGenerated: 0 });
+  }
+
+  // Defensive check for usageStat
+  if (!prisma.usageStat) {
+     return json({ descriptionsGenerated: 0, seoGenerated: 0 });
+  }
+
+  const stats = await prisma.usageStat.findUnique({
+    where: { shop: session.shop }
+  });
+  
+  return json({ 
+    descriptionsGenerated: stats?.descriptionsGenerated || 0,
+    seoGenerated: stats?.seoGenerated || 0
+  });
+};
+
 export default function Dashboard() {
-  const { descriptionsGenerated, seoGenerated } = useLoaderData();
+  const { descriptionsGenerated, seoGenerated } = useLoaderData() || {};
   const navigate = useNavigate();
   const shopify = useAppBridge();
 
@@ -128,13 +153,13 @@ export default function Dashboard() {
                  <Grid>
                    <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 3, lg: 3, xl: 3}}>
                      <BlockStack gap="200">
-                       <Text variant="headingxl" as="p">{descriptionsGenerated}</Text>
+                       <Text variant="headingxl" as="p">{descriptionsGenerated || 0}</Text>
                        <Text variant="bodySm" tone="subdued">Descriptions Generated</Text>
                      </BlockStack>
                    </Grid.Cell>
                    <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 3, lg: 3, xl: 3}}>
                      <BlockStack gap="200">
-                       <Text variant="headingxl" as="p">{seoGenerated}</Text>
+                       <Text variant="headingxl" as="p">{seoGenerated || 0}</Text>
                        <Text variant="bodySm" tone="subdued">SEO Tags Optimized</Text>
                      </BlockStack>
                    </Grid.Cell>
