@@ -18,7 +18,7 @@ import {
   Thumbnail,
   useIndexResourceState
 } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
 import { generateContentSafe } from "../gemini.server";
@@ -296,7 +296,7 @@ export default function Index() {
   const loaderData = useLoaderData();
   const navigation = useNavigation();
   const submit = useSubmit();
-  const shopify = useAppBridge();
+  const shopify = typeof window !== "undefined" ? window.shopify : undefined;
 
   const [productId, setProductId] = useState("");
   const [productTitle, setProductTitle] = useState("");
