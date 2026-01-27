@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, Grid, List } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
 import { SearchIcon, MagicIcon } from "@shopify/polaris-icons";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
@@ -33,7 +33,7 @@ export const loader = async ({ request }) => {
 export default function Dashboard() {
   const { descriptionsGenerated, seoGenerated } = useLoaderData() || {};
   const navigate = useNavigate();
-  const shopify = useAppBridge();
+  // Removed useAppBridge() as per migration guide - utilizing window.shopify global instead
 
   useEffect(() => {
     // Explicitly fetch session token to satisfy Shopify's "Using session tokens" check
