@@ -9,8 +9,8 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -29,6 +29,8 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
+
+  @@map("session")
 }
 
 model UsageStat {
@@ -36,6 +38,21 @@ model UsageStat {
   shop                  String   @unique
   descriptionsGenerated Int      @default(0)
   seoGenerated          Int      @default(0)
+  
+  // Billing fields
+  monthlyUsageCount     Int      @default(0)
+  billingCycleStart     DateTime @default(now())
+  
+  // Subscription info
+  subscriptionId        String?
+  planName              String?
+  planStatus            String?  // ACTIVE, CANCELLED, etc.
+  
+  // Credits (if we want to store pre-paid style or just track remaining free)
+  credits               Int      @default(30) // Default free credits
+  
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+
+  @@map("usage_stat")
 }

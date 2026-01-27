@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useActionData, useNavigation, useSubmit } from "@remix-run/react";
+import { useActionData, useNavigation, useSubmit, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -14,26 +14,58 @@ import {
   InlineStack,
   EmptyState,
   IndexTable,
-  Modal
+  Modal,
+  Thumbnail,
+  useIndexResourceState
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentSafe } from "../gemini.server";
 import { ArrowLeftIcon, EditIcon } from "@shopify/polaris-icons";
+import prisma from "../db.server";
+import { checkAndChargeUsage } from "../billing.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
+  const { admin, session } = await authenticate.admin(request);
+
+  const response = await admin.graphql(
+    `#graphql
+    query getProducts {
+      products(first: 50, sortKey: TITLE) {
+        nodes {
+          id
+          title
+          descriptionHtml
+          featuredImage {
+            url
+            altText
+          }
+        }
+      }
+    }`
+  );
+
+  const responseJson = await response.json();
+
+  const usage = await prisma.usageStat.findUnique({
+    where: { shop: session.shop }
+  });
+
+  return json({
+    products: responseJson.data.products.nodes,
+    usageCount: usage?.monthlyUsageCount || 0,
+    credits: usage?.credits || 0
+  });
 };
 
 export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
-  
+
   const intent = formData.get("intent");
   const productId = formData.get("productId");
-  
+
   if (intent === "fetch") {
     const response = await admin.graphql(
       `#graphql
@@ -47,9 +79,9 @@ export const action = async ({ request }) => {
     );
     const responseJson = await response.json();
     const product = responseJson.data.product;
-    return json({ 
-      productTitle: product.title, 
-      originalDescription: product.descriptionHtml 
+    return json({
+      productTitle: product.title,
+      originalDescription: product.descriptionHtml
     });
   }
 
@@ -95,7 +127,7 @@ export const action = async ({ request }) => {
     if (isDescriptionEmpty) {
       // Generate mode
       if (!productTitle) {
-         return json({ error: "Product title is required to generate a description." }, { status: 400 });
+        return json({ error: "Product title is required to generate a description." }, { status: 400 });
       }
       prompt = `
 You are building a Shopify AI Product Description Generator.
@@ -181,18 +213,31 @@ Rewrite the provided product description HTML according to the selected tone and
 `;
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return json({ error: "Server configuration error: API key missing." }, { status: 500 });
+    // Key check handled by getGeminiModel
+
+    // Pre-check Billing/Update Stats
+    if (prisma && prisma.usageStat) {
+      try {
+        // This will throw if no free credits AND no active plan
+        await checkAndChargeUsage(admin, session.shop, 1);
+
+        try {
+          await prisma.usageStat.upsert({
+            where: { shop: session.shop },
+            update: { descriptionsGenerated: { increment: 1 } },
+            create: { shop: session.shop, descriptionsGenerated: 1 }
+          });
+        } catch (err) {
+          console.error("Stats update failed:", err);
+        }
+      } catch (err) {
+        // Billing check failed (no plan)
+        return json({ error: err.message }, { status: 402 });
+      }
     }
 
-    console.log("Using API Key ending in:", process.env.GEMINI_API_KEY.slice(-4));
-
     try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await generateContentSafe(prompt);
       return json({ rewritten: text });
     } catch (error) {
       console.error("Gemini API Error:", error);
@@ -248,18 +293,46 @@ Rewrite the provided product description HTML according to the selected tone and
 
 export default function Index() {
   const actionData = useActionData();
+  const loaderData = useLoaderData();
   const navigation = useNavigation();
   const submit = useSubmit();
   const shopify = useAppBridge();
-  
+
   const [productId, setProductId] = useState("");
   const [productTitle, setProductTitle] = useState("");
   const [description, setDescription] = useState("");
   const [rewrittenDescription, setRewrittenDescription] = useState("");
-  
+
   // Bulk state
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [isBulkMode, setIsBulkMode] = useState(false);
+
+  const fetchedProducts = loaderData?.products || [];
+
+  const {
+    selectedResources,
+    allResourcesSelected,
+    handleSelectionChange,
+    clearSelection,
+  } = useIndexResourceState(fetchedProducts);
+
+  const handleStartBulk = () => {
+    const selectedObjects = fetchedProducts.filter(p => selectedResources.includes(p.id));
+    setSelectedProducts(selectedObjects.map(p => ({
+      id: p.id,
+      title: p.title,
+      originalDescription: p.descriptionHtml,
+      rewrittenDescription: "",
+      status: "idle"
+    })));
+    setIsBulkMode(true);
+  };
+
+  const handleStartSingle = (product) => {
+    setProductId(product.id);
+    setProductTitle(product.title);
+    setDescription(product.descriptionHtml);
+  };
 
   // Modal State
   const [activeModal, setActiveModal] = useState(false);
@@ -280,16 +353,16 @@ export default function Index() {
     setModalDescription(field === 'original' ? (product.originalDescription || "") : (product.newDescription || ""));
     setActiveModal(true);
   };
-  
+
   const handleModalSave = () => {
     if (editingProduct && editingField) {
       setSelectedProducts(prev => prev.map(p => {
         if (p.id === editingProduct.id) {
-           if (editingField === 'original') {
-             return { ...p, originalDescription: modalDescription };
-           } else {
-             return { ...p, newDescription: modalDescription, status: 'edited' };
-           }
+          if (editingField === 'original') {
+            return { ...p, originalDescription: modalDescription };
+          } else {
+            return { ...p, newDescription: modalDescription, status: 'edited' };
+          }
         }
         return p;
       }));
@@ -298,7 +371,7 @@ export default function Index() {
     setEditingProduct(null);
     setEditingField(null);
   };
-  
+
   const handleModalClose = () => {
     setActiveModal(false);
     setEditingProduct(null);
@@ -313,7 +386,7 @@ export default function Index() {
       setProductTitle(actionData.productTitle);
       shopify.toast.show("Product loaded");
     }
-    
+
     if (actionData?.products) {
       // Bulk fetch response
       setSelectedProducts(actionData.products);
@@ -329,10 +402,10 @@ export default function Index() {
     if (actionData?.success) {
       shopify.toast.show("Product updated successfully");
       if (isBulkMode) {
-         // Update status in bulk list
-         setSelectedProducts(prev => prev.map(p => 
-            p.id === actionData.productId ? { ...p, status: 'saved', newDescription: actionData.newDescription } : p
-         ));
+        // Update status in bulk list
+        setSelectedProducts(prev => prev.map(p =>
+          p.id === actionData.productId ? { ...p, status: 'saved', newDescription: actionData.newDescription } : p
+        ));
       } else {
         setRewrittenDescription(""); // Clear after save
         if (actionData.newDescription) {
@@ -347,7 +420,7 @@ export default function Index() {
 
   const selectProduct = async () => {
     const currentSelectionIds = selectedProducts.map(p => ({ id: p.id }));
-    
+
     const selection = await shopify.resourcePicker({
       type: 'product',
       multiple: true,
@@ -357,7 +430,7 @@ export default function Index() {
       },
       action: 'select'
     });
-    
+
     if (selection) {
       if (selection.length === 1) {
         // Single mode
@@ -407,11 +480,37 @@ export default function Index() {
     setRewrittenDescription("");
   };
 
+  const usageCount = loaderData?.usageCount || 0;
+  const credits = loaderData?.credits || 0;
+
+  const [showBanner, setShowBanner] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hidePaidBanner') !== 'true';
+    }
+    return true;
+  });
+
+  const handleDismissBanner = () => {
+    setShowBanner(false);
+    localStorage.setItem('hidePaidBanner', 'true');
+  };
+
   return (
     <Page>
       <TitleBar title="AI Product Description Improver" />
-      
+
       <BlockStack gap="500">
+        {credits > 0 ? (
+          <Banner tone="success" title="Using Free Credits">
+            <p>You have <strong>{credits}</strong> free credits remaining. This generation is free.</p>
+          </Banner>
+        ) : (
+          showBanner && (
+            <Banner tone="info" title="Paid Usage Active" onDismiss={handleDismissBanner}>
+              <p>You have used all free credits. This generation will cost <strong>$0.015</strong>.</p>
+            </Banner>
+          )
+        )}
         <Layout>
           {isBulkMode ? (
             <Layout.Section>
@@ -424,9 +523,6 @@ export default function Index() {
                         Bulk Editor ({selectedProducts.length} products)
                       </Text>
                     </InlineStack>
-                    <Button onClick={selectProduct}>
-                      Add Products
-                    </Button>
                   </InlineStack>
 
                   <InlineStack gap="400">
@@ -434,15 +530,15 @@ export default function Index() {
                       <Select
                         label="Tone"
                         options={[
-                          {label: 'Simple', value: 'simple'},
-                          {label: 'Premium', value: 'premium'},
-                          {label: 'Indian Audience', value: 'indian audience'},
-                          {label: 'Professional', value: 'professional'},
-                          {label: 'Persuasive', value: 'persuasive'},
-                          {label: 'Witty', value: 'witty'},
-                          {label: 'Luxury', value: 'luxury'},
-                          {label: 'Minimalist', value: 'minimalist'},
-                          {label: 'Storytelling', value: 'storytelling'},
+                          { label: 'Simple', value: 'simple' },
+                          { label: 'Premium', value: 'premium' },
+                          { label: 'Indian Audience', value: 'indian audience' },
+                          { label: 'Professional', value: 'professional' },
+                          { label: 'Persuasive', value: 'persuasive' },
+                          { label: 'Witty', value: 'witty' },
+                          { label: 'Luxury', value: 'luxury' },
+                          { label: 'Minimalist', value: 'minimalist' },
+                          { label: 'Storytelling', value: 'storytelling' },
                         ]}
                         onChange={setTone}
                         value={tone}
@@ -452,8 +548,8 @@ export default function Index() {
                       <Select
                         label="Length"
                         options={[
-                          {label: 'Short', value: 'short'},
-                          {label: 'Long', value: 'long'},
+                          { label: 'Short', value: 'short' },
+                          { label: 'Long', value: 'long' },
                         ]}
                         onChange={setLength}
                         value={length}
@@ -463,22 +559,22 @@ export default function Index() {
                       <Select
                         label="Language"
                         options={[
-                          {label: 'English', value: 'English'},
-                          {label: 'Spanish', value: 'Spanish'},
-                          {label: 'French', value: 'French'},
-                          {label: 'German', value: 'German'},
-                          {label: 'Italian', value: 'Italian'},
-                          {label: 'Portuguese', value: 'Portuguese'},
-                          {label: 'Hindi', value: 'Hindi'},
-                          {label: 'Chinese', value: 'Chinese'},
-                          {label: 'Japanese', value: 'Japanese'},
+                          { label: 'English', value: 'English' },
+                          { label: 'Spanish', value: 'Spanish' },
+                          { label: 'French', value: 'French' },
+                          { label: 'German', value: 'German' },
+                          { label: 'Italian', value: 'Italian' },
+                          { label: 'Portuguese', value: 'Portuguese' },
+                          { label: 'Hindi', value: 'Hindi' },
+                          { label: 'Chinese', value: 'Chinese' },
+                          { label: 'Japanese', value: 'Japanese' },
                         ]}
                         onChange={setLanguage}
                         value={language}
                       />
                     </div>
                   </InlineStack>
-                  
+
                   <TextField
                     label="Custom Instructions / Keywords"
                     value={customInstructions}
@@ -488,13 +584,13 @@ export default function Index() {
                   />
 
                   <IndexTable
-                    resourceName={{singular: 'product', plural: 'products'}}
+                    resourceName={{ singular: 'product', plural: 'products' }}
                     itemCount={selectedProducts.length}
                     headings={[
-                      {title: 'Product'},
-                      {title: 'Original Status'},
-                      {title: 'New Description'},
-                      {title: 'Status'},
+                      { title: 'Product' },
+                      { title: 'Original Status' },
+                      { title: 'New Description' },
+                      { title: 'Status' },
                     ]}
                     selectable={false}
                   >
@@ -505,24 +601,24 @@ export default function Index() {
                         </IndexTable.Cell>
                         <IndexTable.Cell>
                           <InlineStack gap="200" align="start" blockAlign="center">
-                             <span style={{maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                                {product.originalDescription && product.originalDescription.length > 10 
-                                  ? product.originalDescription.replace(/<[^>]*>/g, '').substring(0, 15) + '...' 
-                                  : 'Empty'}
-                             </span>
-                             <Button icon={EditIcon} variant="plain" onClick={() => handleEditClick(product, 'original')} accessibilityLabel="Edit Original" />
+                            <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {product.originalDescription && product.originalDescription.length > 10
+                                ? product.originalDescription.replace(/<[^>]*>/g, '').substring(0, 15) + '...'
+                                : 'Empty'}
+                            </span>
+                            <Button icon={EditIcon} variant="plain" onClick={() => handleEditClick(product, 'original')} accessibilityLabel="Edit Original" />
                           </InlineStack>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
                           <InlineStack gap="200" align="start" blockAlign="center">
-                             <span style={{maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                                {product.newDescription 
-                                  ? product.newDescription.replace(/<[^>]*>/g, '').substring(0, 15) + (product.newDescription.length > 15 ? '...' : '')
-                                  : '-'}
-                             </span>
-                             {product.newDescription && (
-                               <Button icon={EditIcon} variant="plain" onClick={() => handleEditClick(product, 'new')} accessibilityLabel="Edit New" />
-                             )}
+                            <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {product.newDescription
+                                ? product.newDescription.replace(/<[^>]*>/g, '').substring(0, 15) + (product.newDescription.length > 15 ? '...' : '')
+                                : '-'}
+                            </span>
+                            {product.newDescription && (
+                              <Button icon={EditIcon} variant="plain" onClick={() => handleEditClick(product, 'new')} accessibilityLabel="Edit New" />
+                            )}
                           </InlineStack>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
@@ -531,7 +627,7 @@ export default function Index() {
                       </IndexTable.Row>
                     ))}
                   </IndexTable>
-                  
+
                   <Modal
                     open={activeModal}
                     onClose={handleModalClose}
@@ -559,15 +655,16 @@ export default function Index() {
                   </Modal>
 
                   <InlineStack align="end" gap="300">
-                     <Button 
-                      variant="primary" 
+                    <Button
+                      variant="primary"
+                      disabled={selectedProducts.some(p => p.status === 'generating...')}
                       onClick={async () => {
                         const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-                        
+
                         for (const product of selectedProducts) {
                           // Update status to loading
                           setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'generating...' } : p));
-                          
+
                           const formData = new FormData();
                           formData.append("intent", "rewrite");
                           formData.append("productTitle", product.title);
@@ -576,36 +673,37 @@ export default function Index() {
                           formData.append("length", length);
                           formData.append("language", language);
                           formData.append("customInstructions", customInstructions);
-                          
+
                           try {
                             const response = await fetch("/app/api/generate", {
                               method: "POST",
                               body: formData,
                               credentials: "same-origin"
                             });
-                            
+
                             if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
+                              throw new Error(`HTTP error! status: ${response.status}`);
                             }
-                            
+
                             const text = await response.text();
                             let data;
                             try {
-                                data = JSON.parse(text);
+                              data = JSON.parse(text);
                             } catch (e) {
-                                console.error("Failed to parse JSON:", text);
-                                throw new Error("Invalid server response");
+                              console.error("Failed to parse JSON:", text);
+                              throw new Error("Invalid server response");
                             }
-                            
+
                             if (data.rewritten) {
-                               setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'ready to save', newDescription: data.rewritten } : p));
+                              setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'ready to save', newDescription: data.rewritten } : p));
                             } else if (data.error) {
-                               setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'error: ' + data.error } : p));
+                              // If error (e.g. rate limit), show original description and do not save
+                              setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'failed', newDescription: product.originalDescription } : p));
                             }
                           } catch (e) {
-                             setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'error: ' + e.message } : p));
+                            setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'failed', newDescription: product.originalDescription } : p));
                           }
-                          
+
                           // Add delay to avoid rate limits
                           await delay(10000);
                         }
@@ -613,51 +711,51 @@ export default function Index() {
                     >
                       Generate All
                     </Button>
-                    <Button 
-                      variant="primary" 
+                    <Button
+                      variant="primary"
                       onClick={async () => {
-                         for (const product of selectedProducts) {
-                            if ((product.status === 'ready to save' || product.status === 'edited') && product.newDescription) {
-                                setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'saving...' } : p));
-                                const formData = new FormData();
-                                formData.append("intent", "save");
-                                formData.append("productId", product.id);
-                                formData.append("newDescription", product.newDescription);
-                                
-                                try {
-                                  const response = await fetch("/app/api/save", {
-                                    method: "POST",
-                                    body: formData,
-                                    credentials: "same-origin"
-                                  });
-                                  
-                                  if (!response.ok) {
-                                      throw new Error(`HTTP error! status: ${response.status}`);
-                                  }
+                        for (const product of selectedProducts) {
+                          if ((product.status === 'ready to save' || product.status === 'edited') && product.newDescription) {
+                            setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'saving...' } : p));
+                            const formData = new FormData();
+                            formData.append("intent", "save");
+                            formData.append("productId", product.id);
+                            formData.append("newDescription", product.newDescription);
 
-                                  const text = await response.text();
-                                  let data;
-                                  try {
-                                      data = JSON.parse(text);
-                                  } catch (e) {
-                                      console.error("Failed to parse JSON:", text);
-                                      throw new Error("Invalid server response");
-                                  }
+                            try {
+                              const response = await fetch("/app/api/save", {
+                                method: "POST",
+                                body: formData,
+                                credentials: "same-origin"
+                              });
 
-                                  if (data.success) {
-                                     setSelectedProducts(prev => prev.map(p => p.id === product.id ? { 
-                                       ...p, 
-                                       status: 'saved',
-                                       originalDescription: product.newDescription 
-                                     } : p));
-                                  } else {
-                                     setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'save error: ' + (data.error || 'Unknown') } : p));
-                                  }
-                                } catch (e) {
-                                   setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'save error: ' + e.message } : p));
-                                }
+                              if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                              }
+
+                              const text = await response.text();
+                              let data;
+                              try {
+                                data = JSON.parse(text);
+                              } catch (e) {
+                                console.error("Failed to parse JSON:", text);
+                                throw new Error("Invalid server response");
+                              }
+
+                              if (data.success) {
+                                setSelectedProducts(prev => prev.map(p => p.id === product.id ? {
+                                  ...p,
+                                  status: 'saved',
+                                  originalDescription: product.newDescription
+                                } : p));
+                              } else {
+                                setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'save error: ' + (data.error || 'Unknown') } : p));
+                              }
+                            } catch (e) {
+                              setSelectedProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: 'save error: ' + e.message } : p));
                             }
-                         }
+                          }
+                        }
                       }}
                     >
                       Save All
@@ -672,14 +770,11 @@ export default function Index() {
                 <BlockStack gap="500">
                   <InlineStack align="space-between" blockAlign="center">
                     <InlineStack gap="300" blockAlign="center">
-                      <Button icon={ArrowLeftIcon} onClick={handleBack} accessibilityLabel="Back to Dashboard" />
+                      <Button icon={ArrowLeftIcon} onClick={handleBack} accessibilityLabel="Back" />
                       <Text as="h2" variant="headingMd">
                         {productTitle ? `Editing: ${productTitle}` : "Select a Product"}
                       </Text>
                     </InlineStack>
-                    <Button onClick={selectProduct}>
-                      Change Product
-                    </Button>
                   </InlineStack>
 
                   <TextField
@@ -696,15 +791,15 @@ export default function Index() {
                       <Select
                         label="Tone"
                         options={[
-                          {label: 'Simple', value: 'simple'},
-                          {label: 'Premium', value: 'premium'},
-                          {label: 'Indian Audience', value: 'indian audience'},
-                          {label: 'Professional', value: 'professional'},
-                          {label: 'Persuasive', value: 'persuasive'},
-                          {label: 'Witty', value: 'witty'},
-                          {label: 'Luxury', value: 'luxury'},
-                          {label: 'Minimalist', value: 'minimalist'},
-                          {label: 'Storytelling', value: 'storytelling'},
+                          { label: 'Simple', value: 'simple' },
+                          { label: 'Premium', value: 'premium' },
+                          { label: 'Indian Audience', value: 'indian audience' },
+                          { label: 'Professional', value: 'professional' },
+                          { label: 'Persuasive', value: 'persuasive' },
+                          { label: 'Witty', value: 'witty' },
+                          { label: 'Luxury', value: 'luxury' },
+                          { label: 'Minimalist', value: 'minimalist' },
+                          { label: 'Storytelling', value: 'storytelling' },
                         ]}
                         onChange={setTone}
                         value={tone}
@@ -714,8 +809,8 @@ export default function Index() {
                       <Select
                         label="Length"
                         options={[
-                          {label: 'Short', value: 'short'},
-                          {label: 'Long', value: 'long'},
+                          { label: 'Short', value: 'short' },
+                          { label: 'Long', value: 'long' },
                         ]}
                         onChange={setLength}
                         value={length}
@@ -725,15 +820,15 @@ export default function Index() {
                       <Select
                         label="Language"
                         options={[
-                          {label: 'English', value: 'English'},
-                          {label: 'Spanish', value: 'Spanish'},
-                          {label: 'French', value: 'French'},
-                          {label: 'German', value: 'German'},
-                          {label: 'Italian', value: 'Italian'},
-                          {label: 'Portuguese', value: 'Portuguese'},
-                          {label: 'Hindi', value: 'Hindi'},
-                          {label: 'Chinese', value: 'Chinese'},
-                          {label: 'Japanese', value: 'Japanese'},
+                          { label: 'English', value: 'English' },
+                          { label: 'Spanish', value: 'Spanish' },
+                          { label: 'French', value: 'French' },
+                          { label: 'German', value: 'German' },
+                          { label: 'Italian', value: 'Italian' },
+                          { label: 'Portuguese', value: 'Portuguese' },
+                          { label: 'Hindi', value: 'Hindi' },
+                          { label: 'Chinese', value: 'Chinese' },
+                          { label: 'Japanese', value: 'Japanese' },
                         ]}
                         onChange={setLanguage}
                         value={language}
@@ -750,9 +845,9 @@ export default function Index() {
                   />
 
                   <InlineStack align="end">
-                    <Button 
-                      variant="primary" 
-                      onClick={handleRewrite} 
+                    <Button
+                      variant="primary"
+                      onClick={handleRewrite}
                       loading={isLoading && !rewrittenDescription}
                       disabled={!productId}
                     >
@@ -778,12 +873,13 @@ export default function Index() {
                         <Text as="h3" variant="headingSm" fontWeight="bold">
                           Improved Description Preview
                         </Text>
-                        <div 
+                        <div
                           style={{ maxHeight: '300px', overflowY: 'auto', background: 'white', padding: '10px', borderRadius: '4px' }}
-                          dangerouslySetInnerHTML={{ __html: rewrittenDescription }} 
+                          dangerouslySetInnerHTML={{ __html: rewrittenDescription }}
                         />
                         <InlineStack align="end" gap="300">
                           <Button
+                            disabled={isLoading}
                             onClick={() => setRewrittenDescription("")}
                           >
                             Discard
@@ -803,23 +899,53 @@ export default function Index() {
               </Card>
             </Layout.Section>
           ) : (
-              <Layout.Section>
-                <Card>
-                  <EmptyState
-                    heading="Enhance Your Product Descriptions with AI"
-                    action={{
-                      content: 'Select a Product',
-                      onAction: selectProduct,
-                    }}
-                    image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+            <Layout.Section>
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">Select Products to Improve</Text>
+                  <IndexTable
+                    resourceName={{ singular: 'product', plural: 'products' }}
+                    itemCount={fetchedProducts.length}
+                    selectedItemsCount={allResourcesSelected ? 'All' : selectedResources.length}
+                    onSelectionChange={handleSelectionChange}
+                    headings={[
+                      { title: 'Image' },
+                      { title: 'Product' },
+                      { title: 'Action' },
+                    ]}
+                    promotedBulkActions={[
+                      {
+                        content: 'Edit Selected',
+                        onAction: handleStartBulk,
+                      },
+                    ]}
                   >
-                    <p>
-                      Select a product to instantly generate or improve its description using advanced AI.
-                      Choose from multiple tones and languages to match your brand voice.
-                    </p>
-                  </EmptyState>
-                </Card>
-              </Layout.Section>
+                    {fetchedProducts.map((product, index) => (
+                      <IndexTable.Row
+                        id={product.id}
+                        key={product.id}
+                        selected={selectedResources.includes(product.id)}
+                        position={index}
+                      >
+                        <IndexTable.Cell>
+                          <Thumbnail
+                            source={product.featuredImage?.url || ""}
+                            alt={product.featuredImage?.altText || product.title}
+                            size="small"
+                          />
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Text fontWeight="bold" as="span">{product.title}</Text>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Button size="slim" onClick={() => handleStartSingle(product)}>Edit Description</Button>
+                        </IndexTable.Cell>
+                      </IndexTable.Row>
+                    ))}
+                  </IndexTable>
+                </BlockStack>
+              </Card>
+            </Layout.Section>
           )}
         </Layout>
       </BlockStack>
