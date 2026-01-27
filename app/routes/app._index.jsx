@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, Grid, List } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 // ... imports
+import { useLoaderData, useNavigate } from "@remix-run/react";
 // ... imports
 
 // ... inside Dashboard component
