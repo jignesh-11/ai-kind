@@ -6,11 +6,18 @@ export const checkAndChargeUsage = async (admin, shop, count = 1) => {
     let usage = await prisma.usageStat.findUnique({ where: { shop } });
 
     if (!usage) {
+        // Fallback: Create usage record with default 30 free credits
+        // Note: This should rarely trigger now that we have initializeFreeCredits() 
+        // running on first app access, but it's a safety net.
+        console.log(`[Billing] Creating new usage record for ${shop} with 30 free credits (fallback)`);
         usage = await prisma.usageStat.create({
             data: {
                 shop,
                 billingCycleStart: new Date(),
                 monthlyUsageCount: 0,
+                descriptionsGenerated: 0,
+                seoGenerated: 0,
+                credits: 30, // Ensure free credits are always set
             },
         });
     }

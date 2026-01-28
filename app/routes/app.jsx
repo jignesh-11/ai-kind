@@ -4,11 +4,15 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server";
+import { initializeFreeCredits } from "../init-credits.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+
+  // Initialize 30 free credits for new installations
+  await initializeFreeCredits(session.shop);
 
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };
