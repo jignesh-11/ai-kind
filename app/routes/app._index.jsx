@@ -71,9 +71,9 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <Box padding="400" background="bg-surface-active" borderRadius="300">
           <BlockStack gap="200">
-            <Text as="h1" variant="headingLg">Welcome to AI Content Studio</Text>
+            <Text as="h1" variant="headingLg">Welcome to CopySpark</Text>
             <Text as="p" variant="bodyMd">
-              Supercharge your Shopify store with AI-powered content generation. Select a tool below to get started.
+              Supercharge your Shopify store with AI-powered product descriptions and SEO optimization.
             </Text>
           </BlockStack>
         </Box>
