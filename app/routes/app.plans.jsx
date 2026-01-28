@@ -124,7 +124,7 @@ export const action = async ({ request }) => {
                         {
                             plan: {
                                 appUsagePricingDetails: {
-                                    terms: "First 30 generations free per month, then $0.015 per generation.",
+                                    terms: "30 free credits included on first install (one-time), then $0.015 per generation.",
                                     cappedAmount: { amount: 20.0, currencyCode: "USD" }
                                 }
                             }
