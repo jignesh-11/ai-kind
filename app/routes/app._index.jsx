@@ -142,7 +142,7 @@ export default function Dashboard() {
                       <List.Item>🎨 Multiple Professional Tones (Premium, Witty, Persuasive)</List.Item>
                       <List.Item>📝 Custom Instructions for precise AI control</List.Item>
                       <List.Item>💾 Direct Shopify Integration - Save updates in one click</List.Item>
-                      <List.Item>⚡️ Powered by advanced Google Gemini AI</List.Item>
+                      <List.Item>⚡️ Lightning-fast intelligent content generation</List.Item>
                     </List>
                   </Grid.Cell>
                 </Grid>
