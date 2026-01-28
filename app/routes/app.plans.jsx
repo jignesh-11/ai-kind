@@ -192,16 +192,28 @@ export default function Plans() {
 
     const formattedDate = new Date(cycleStart).toLocaleDateString();
 
-    const [showBanner, setShowBanner] = useState(() => {
+    const [showPaidBanner, setShowPaidBanner] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('hidePaidBanner') !== 'true';
         }
         return true;
     });
 
-    const handleDismissBanner = () => {
-        setShowBanner(false);
+    const [showCreditsBanner, setShowCreditsBanner] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('hideCreditsBanner') !== 'true';
+        }
+        return true;
+    });
+
+    const handleDismissPaidBanner = () => {
+        setShowPaidBanner(false);
         localStorage.setItem('hidePaidBanner', 'true');
+    };
+
+    const handleDismissCreditsBanner = () => {
+        setShowCreditsBanner(false);
+        localStorage.setItem('hideCreditsBanner', 'true');
     };
 
     return (
@@ -212,12 +224,14 @@ export default function Plans() {
                     <BlockStack gap="500">
 
                         {credits > 0 ? (
-                            <Banner title="You have Free Credits" tone="success">
-                                <p>You have {credits} free generation credits remaining.</p>
-                            </Banner>
+                            showCreditsBanner && (
+                                <Banner title="You have Free Credits" tone="success" onDismiss={handleDismissCreditsBanner}>
+                                    <p>You have {credits} free generation credits remaining.</p>
+                                </Banner>
+                            )
                         ) : (
-                            showBanner && (
-                                <Banner title="Pay-as-you-go Active" tone="info" onDismiss={handleDismissBanner}>
+                            showPaidBanner && (
+                                <Banner title="Pay-as-you-go Active" tone="info" onDismiss={handleDismissPaidBanner}>
                                     <p>You have used all your free credits. Additional usage is charged at $0.015 per generation.</p>
                                 </Banner>
                             )
