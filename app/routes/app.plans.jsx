@@ -27,10 +27,14 @@ export const loader = async ({ request }) => {
         where: { shop: session.shop }
     });
 
+    // Detect if this is a development store
+    // Development stores end with .myshopify.com and are free test stores
+    const isDevelopmentStore = session.shop.includes('.myshopify.com');
+
     // Check subscription status
     const billingCheck = await authenticate.admin(request).then(({ billing }) => billing.check({
         plans: ["Growth"],
-        isTest: true,
+        isTest: isDevelopmentStore,
     })).catch(() => ({ hasActivePayment: false }));
 
     return json({
@@ -95,10 +99,14 @@ export const action = async ({ request }) => {
 
     // Default intent: subscribe
     try {
+        // Detect if this is a development store for test mode
+        const { session: sessionForTest } = await authenticate.admin(request);
+        const isDevelopmentStore = sessionForTest.shop.includes('.myshopify.com');
+
         const response = await admin.graphql(
             `#graphql
-            mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!) {
-              appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: true, lineItems: $lineItems) {
+            mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean!) {
+              appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems) {
                 userErrors {
                   field
                   message
@@ -112,6 +120,7 @@ export const action = async ({ request }) => {
             {
                 variables: {
                     name: "Growth",
+                    test: isDevelopmentStore,
                     returnUrl: `https://${new URL(request.url).hostname}/app/plans?shop=${new URL(request.url).searchParams.get("shop")}&host=${new URL(request.url).searchParams.get("host")}`,
                     lineItems: [
                         {
