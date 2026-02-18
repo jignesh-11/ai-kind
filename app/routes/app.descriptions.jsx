@@ -512,19 +512,7 @@ export default function Index() {
       <TitleBar title="AI Product Description Improver" />
 
       <BlockStack gap="500">
-        {credits > 0 ? (
-          showCreditsBanner && (
-            <Banner tone="success" title="Using Free Credits" onDismiss={handleDismissCreditsBanner}>
-              <p>You have <strong>{credits}</strong> free credits remaining. This generation is free.</p>
-            </Banner>
-          )
-        ) : (
-          showPaidBanner && (
-            <Banner tone="info" title="Paid Usage Active" onDismiss={handleDismissPaidBanner}>
-              <p>You have used all free credits. This generation will cost <strong>$0.015</strong>.</p>
-            </Banner>
-          )
-        )}
+
         <Layout>
           {isBulkMode ? (
             <Layout.Section>

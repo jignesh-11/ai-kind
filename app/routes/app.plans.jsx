@@ -232,19 +232,7 @@ export default function Plans() {
                 <Layout.Section>
                     <BlockStack gap="500">
 
-                        {credits > 0 ? (
-                            showCreditsBanner && (
-                                <Banner title="You have Free Credits" tone="success" onDismiss={handleDismissCreditsBanner}>
-                                    <p>You have {credits} free generation credits remaining.</p>
-                                </Banner>
-                            )
-                        ) : (
-                            showPaidBanner && (
-                                <Banner title="Pay-as-you-go Active" tone="info" onDismiss={handleDismissPaidBanner}>
-                                    <p>You have used all your free credits. Additional usage is charged at $0.015 per generation.</p>
-                                </Banner>
-                            )
-                        )}
+
 
                         <Card>
                             <BlockStack gap="500">
@@ -259,21 +247,11 @@ export default function Plans() {
                                     </Box>
                                     <Box>
                                         <BlockStack gap="100">
-                                            <Text variant="headingSm">Billable Items</Text>
-                                            <Text variant="headingLg">{billableCount}</Text>
+                                            <Text variant="headingSm">Plan Status</Text>
+                                            <Text variant="headingLg">Free</Text>
                                         </BlockStack>
                                     </Box>
                                 </InlineGrid>
-
-                                <Divider />
-
-                                <Box>
-                                    <BlockStack gap="100">
-                                        <Text variant="headingSm">Estimated Cost (Current Cycle)</Text>
-                                        <Text variant="headingLg">${estimatedCost}</Text>
-                                        <Text variant="bodySm" tone="subdued">Charges appy only after credits are exhausted.</Text>
-                                    </BlockStack>
-                                </Box>
                             </BlockStack>
                         </Card>
 
@@ -299,19 +277,13 @@ export default function Plans() {
                                 </InlineStack>
 
                                 <BlockStack gap="200">
-                                    <Text as="p"><strong>Monthly Fee:</strong> $0.00</Text>
-                                    <Text as="p"><strong>Included:</strong> 30 Free Credits (Lifetime One-time)</Text>
-                                    <Text as="p"><strong>Usage Rate:</strong> $0.015 per generation after credits</Text>
+                                    <Text as="p"><strong>Monthly Fee:</strong> Free</Text>
+                                    <Text as="p"><strong>Included:</strong> Unlimited Generation</Text>
                                 </BlockStack>
 
                                 <Divider />
 
-                                <BlockStack gap="200">
-                                    <Text variant="headingSm">Payment Method</Text>
-                                    <Text as="p" tone="subdued">
-                                        Charges are added to your monthly Shopify Invoice. You do not need to enter a credit card here.
-                                    </Text>
-                                </BlockStack>
+
 
                                 <Button variant="primary" onClick={() => submit({}, { method: "post" })}>
                                     Activate / Update Plan
