@@ -110,7 +110,7 @@ export const action = async ({ request }) => {
     // Key check handled by getGeminiModel
 
     const prompt = `
-You are an SEO Expert for Shopify stores.
+You are an SEO Expert for e-commerce stores.
 Generate an optimized SEO Title and Meta Description for the following product.
 
 Product Title: ${productTitle}

@@ -73,7 +73,7 @@ export default function Dashboard() {
           <BlockStack gap="200">
             <Text as="h1" variant="headingLg">Welcome to CopySpark</Text>
             <Text as="p" variant="bodyMd">
-              Supercharge your Shopify store with AI-powered product descriptions and SEO optimization.
+              Supercharge your store with AI-powered product descriptions and SEO optimization.
             </Text>
           </BlockStack>
         </Box>
@@ -141,7 +141,7 @@ export default function Dashboard() {
                     <List>
                       <List.Item>🎨 Multiple Professional Tones (Premium, Witty, Persuasive)</List.Item>
                       <List.Item>📝 Custom Instructions for precise AI control</List.Item>
-                      <List.Item>💾 Direct Shopify Integration - Save updates in one click</List.Item>
+                      <List.Item>💾 Direct Integration - Save updates in one click</List.Item>
                       <List.Item>⚡️ Lightning-fast intelligent content generation</List.Item>
                     </List>
                   </Grid.Cell>

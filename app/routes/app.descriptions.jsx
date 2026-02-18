@@ -130,7 +130,7 @@ export const action = async ({ request }) => {
         return json({ error: "Product title is required to generate a description." }, { status: 400 });
       }
       prompt = `
-You are building a Shopify AI Product Description Generator.
+You are building an AI Product Description Generator.
 Generate a new product description based on the product title.
 
 Product Title: ${productTitle}
@@ -167,7 +167,7 @@ Generate a product description in HTML format in ${language} language. Return ON
     } else {
       // Rewrite mode
       prompt = `
-You are building a Shopify AI Product Description Improver.
+You are building an AI Product Description Improver.
 This tool must rewrite existing product descriptions.
 
 Core Rules:
