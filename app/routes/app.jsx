@@ -32,9 +32,9 @@ export default function App() {
         <Link to="/app/seo">
           SEO Generator
         </Link>
-        <Link to="/app/plans">
+        {/* <Link to="/app/plans">
           Plans & Billing
-        </Link>
+        </Link> */}
       </NavMenu>
       <Outlet />
     </AppProvider>
