@@ -43,9 +43,8 @@ export default function Dashboard() {
     // Explicitly fetch session token to satisfy Shopify's "Using session tokens" check
     const pingBackend = async () => {
       try {
-        // For App Bridge v4, use window.shopify.idToken() if available, 
-        // or fall back to utilities if using older patterns. 
-        // remix-app-template uses v4, so window.shopify is the standard way.
+        // For App Bridge v4, use window.shopify.idToken() if available
+        // The @shopify/shopify-app-remix package handles session tokens automatically
         if (window.shopify && window.shopify.idToken) {
           const token = await window.shopify.idToken();
           console.log("[Auth Check] Session Token retrieved successfully.");
