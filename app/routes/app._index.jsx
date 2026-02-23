@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Explicitly fetch session token to satisfy Shopify's "Using session tokens" check
-    const initializeAuth = async () => {
+    const pingBackend = async () => {
       try {
         // For App Bridge v4, use window.shopify.idToken() if available
         // The @shopify/shopify-app-remix package handles session tokens automatically
