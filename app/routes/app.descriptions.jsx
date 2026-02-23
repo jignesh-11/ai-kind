@@ -130,7 +130,7 @@ export const action = async ({ request }) => {
         return json({ error: "Product title is required to generate a description." }, { status: 400 });
       }
       prompt = `
-You are building a Shopify AI Product Description Generator.
+You are building an AI Product Description Generator.
 Generate a new product description based on the product title.
 
 Product Title: ${productTitle}
@@ -167,7 +167,7 @@ Generate a product description in HTML format in ${language} language. Return ON
     } else {
       // Rewrite mode
       prompt = `
-You are building a Shopify AI Product Description Improver.
+You are building an AI Product Description Improver.
 This tool must rewrite existing product descriptions.
 
 Core Rules:
@@ -483,16 +483,28 @@ export default function Index() {
   const usageCount = loaderData?.usageCount || 0;
   const credits = loaderData?.credits || 0;
 
-  const [showBanner, setShowBanner] = useState(() => {
+  const [showPaidBanner, setShowPaidBanner] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('hidePaidBanner') !== 'true';
     }
     return true;
   });
 
-  const handleDismissBanner = () => {
-    setShowBanner(false);
+  const [showCreditsBanner, setShowCreditsBanner] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hideCreditsBanner') !== 'true';
+    }
+    return true;
+  });
+
+  const handleDismissPaidBanner = () => {
+    setShowPaidBanner(false);
     localStorage.setItem('hidePaidBanner', 'true');
+  };
+
+  const handleDismissCreditsBanner = () => {
+    setShowCreditsBanner(false);
+    localStorage.setItem('hideCreditsBanner', 'true');
   };
 
   return (
@@ -500,17 +512,7 @@ export default function Index() {
       <TitleBar title="AI Product Description Improver" />
 
       <BlockStack gap="500">
-        {credits > 0 ? (
-          <Banner tone="success" title="Using Free Credits">
-            <p>You have <strong>{credits}</strong> free credits remaining. This generation is free.</p>
-          </Banner>
-        ) : (
-          showBanner && (
-            <Banner tone="info" title="Paid Usage Active" onDismiss={handleDismissBanner}>
-              <p>You have used all free credits. This generation will cost <strong>$0.015</strong>.</p>
-            </Banner>
-          )
-        )}
+
         <Layout>
           {isBulkMode ? (
             <Layout.Section>

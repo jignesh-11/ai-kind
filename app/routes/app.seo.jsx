@@ -110,7 +110,7 @@ export const action = async ({ request }) => {
     // Key check handled by getGeminiModel
 
     const prompt = `
-You are an SEO Expert for Shopify stores.
+You are an SEO Expert for e-commerce stores.
 Generate an optimized SEO Title and Meta Description for the following product.
 
 Product Title: ${productTitle}
@@ -287,33 +287,35 @@ export default function SeoGenerator() {
 
   const credits = loaderData?.credits || 0;
 
-  const [showBanner, setShowBanner] = useState(() => {
+  const [showPaidBanner, setShowPaidBanner] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('hidePaidBanner') !== 'true';
     }
     return true;
   });
 
-  const handleDismissBanner = () => {
-    setShowBanner(false);
+  const [showCreditsBanner, setShowCreditsBanner] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hideCreditsBanner') !== 'true';
+    }
+    return true;
+  });
+
+  const handleDismissPaidBanner = () => {
+    setShowPaidBanner(false);
     localStorage.setItem('hidePaidBanner', 'true');
+  };
+
+  const handleDismissCreditsBanner = () => {
+    setShowCreditsBanner(false);
+    localStorage.setItem('hideCreditsBanner', 'true');
   };
 
   return (
     <Page>
       <TitleBar title="AI SEO Generator" />
       <BlockStack gap="500">
-        {credits > 0 ? (
-          <Banner tone="success" title="Using Free Credits">
-            <p>You have <strong>{credits}</strong> free credits remaining. This generation is free.</p>
-          </Banner>
-        ) : (
-          showBanner && (
-            <Banner tone="info" title="Paid Usage Active" onDismiss={handleDismissBanner}>
-              <p>You have used all free credits. This generation will cost <strong>$0.015</strong>.</p>
-            </Banner>
-          )
-        )}
+
         <Layout>
           <Layout.Section>
             {productId ? (

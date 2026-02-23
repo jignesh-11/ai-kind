@@ -27,10 +27,14 @@ export const loader = async ({ request }) => {
         where: { shop: session.shop }
     });
 
+    // Detect if this is a development store
+    // Development stores end with .myshopify.com and are free test stores
+    const isDevelopmentStore = session.shop.includes('.myshopify.com');
+
     // Check subscription status
     const billingCheck = await authenticate.admin(request).then(({ billing }) => billing.check({
         plans: ["Growth"],
-        isTest: true,
+        isTest: isDevelopmentStore,
     })).catch(() => ({ hasActivePayment: false }));
 
     return json({
@@ -95,10 +99,14 @@ export const action = async ({ request }) => {
 
     // Default intent: subscribe
     try {
+        // Detect if this is a development store for test mode
+        const { session: sessionForTest } = await authenticate.admin(request);
+        const isDevelopmentStore = sessionForTest.shop.includes('.myshopify.com');
+
         const response = await admin.graphql(
             `#graphql
-            mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!) {
-              appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: true, lineItems: $lineItems) {
+            mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean!) {
+              appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems) {
                 userErrors {
                   field
                   message
@@ -112,6 +120,7 @@ export const action = async ({ request }) => {
             {
                 variables: {
                     name: "Growth",
+                    test: isDevelopmentStore,
                     returnUrl: `https://${new URL(request.url).hostname}/app/plans?shop=${new URL(request.url).searchParams.get("shop")}&host=${new URL(request.url).searchParams.get("host")}`,
                     lineItems: [
                         {
@@ -124,7 +133,7 @@ export const action = async ({ request }) => {
                         {
                             plan: {
                                 appUsagePricingDetails: {
-                                    terms: "First 30 generations free per month, then $0.015 per generation.",
+                                    terms: "30 free credits included on first install (one-time), then $0.015 per generation.",
                                     cappedAmount: { amount: 20.0, currencyCode: "USD" }
                                 }
                             }
@@ -192,16 +201,28 @@ export default function Plans() {
 
     const formattedDate = new Date(cycleStart).toLocaleDateString();
 
-    const [showBanner, setShowBanner] = useState(() => {
+    const [showPaidBanner, setShowPaidBanner] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('hidePaidBanner') !== 'true';
         }
         return true;
     });
 
-    const handleDismissBanner = () => {
-        setShowBanner(false);
+    const [showCreditsBanner, setShowCreditsBanner] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('hideCreditsBanner') !== 'true';
+        }
+        return true;
+    });
+
+    const handleDismissPaidBanner = () => {
+        setShowPaidBanner(false);
         localStorage.setItem('hidePaidBanner', 'true');
+    };
+
+    const handleDismissCreditsBanner = () => {
+        setShowCreditsBanner(false);
+        localStorage.setItem('hideCreditsBanner', 'true');
     };
 
     return (
@@ -211,17 +232,7 @@ export default function Plans() {
                 <Layout.Section>
                     <BlockStack gap="500">
 
-                        {credits > 0 ? (
-                            <Banner title="You have Free Credits" tone="success">
-                                <p>You have {credits} free generation credits remaining.</p>
-                            </Banner>
-                        ) : (
-                            showBanner && (
-                                <Banner title="Pay-as-you-go Active" tone="info" onDismiss={handleDismissBanner}>
-                                    <p>You have used all your free credits. Additional usage is charged at $0.015 per generation.</p>
-                                </Banner>
-                            )
-                        )}
+
 
                         <Card>
                             <BlockStack gap="500">
@@ -236,21 +247,11 @@ export default function Plans() {
                                     </Box>
                                     <Box>
                                         <BlockStack gap="100">
-                                            <Text variant="headingSm">Billable Items</Text>
-                                            <Text variant="headingLg">{billableCount}</Text>
+                                            <Text variant="headingSm">Plan Status</Text>
+                                            <Text variant="headingLg">Free</Text>
                                         </BlockStack>
                                     </Box>
                                 </InlineGrid>
-
-                                <Divider />
-
-                                <Box>
-                                    <BlockStack gap="100">
-                                        <Text variant="headingSm">Estimated Cost (Current Cycle)</Text>
-                                        <Text variant="headingLg">${estimatedCost}</Text>
-                                        <Text variant="bodySm" tone="subdued">Charges appy only after credits are exhausted.</Text>
-                                    </BlockStack>
-                                </Box>
                             </BlockStack>
                         </Card>
 
@@ -276,19 +277,13 @@ export default function Plans() {
                                 </InlineStack>
 
                                 <BlockStack gap="200">
-                                    <Text as="p"><strong>Monthly Fee:</strong> $0.00</Text>
-                                    <Text as="p"><strong>Included:</strong> 30 Free Credits (Lifetime One-time)</Text>
-                                    <Text as="p"><strong>Usage Rate:</strong> $0.015 per generation after credits</Text>
+                                    <Text as="p"><strong>Monthly Fee:</strong> Free</Text>
+                                    <Text as="p"><strong>Included:</strong> Unlimited Generation</Text>
                                 </BlockStack>
 
                                 <Divider />
 
-                                <BlockStack gap="200">
-                                    <Text variant="headingSm">Payment Method</Text>
-                                    <Text as="p" tone="subdued">
-                                        Charges are added to your monthly Shopify Invoice. You do not need to enter a credit card here.
-                                    </Text>
-                                </BlockStack>
+
 
                                 <Button variant="primary" onClick={() => submit({}, { method: "post" })}>
                                     Activate / Update Plan
