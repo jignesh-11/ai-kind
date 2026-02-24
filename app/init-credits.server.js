@@ -1,4 +1,5 @@
 import prisma from "./db.server";
+import { sendInstallNotification } from "./notify-install.server";
 
 /**
  * Initialize free credits for a new shop installation.
@@ -28,6 +29,9 @@ export async function initializeFreeCredits(shop) {
                 },
             });
             console.log(`[Init Credits] Successfully initialized 30 free credits for: ${shop}`);
+
+            // Fire-and-forget email notification — never blocks app loading
+            sendInstallNotification(shop).catch(() => { });
         } else {
             console.log(`[Init Credits] Shop ${shop} already has usage stats. Credits: ${existingUsage.credits}`);
         }
