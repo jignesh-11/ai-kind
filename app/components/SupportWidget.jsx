@@ -30,7 +30,7 @@ export default function SupportWidget() {
 
           <div className="support-widget-panel__links">
             <a
-              href="mailto:support@copyspark.app"
+              href="mailto:jigneshdhandhukiya63@gmail.com"
               className="support-widget-link"
               target="_blank"
               rel="noopener noreferrer"
@@ -38,12 +38,12 @@ export default function SupportWidget() {
               <span className="support-widget-link__icon">📧</span>
               <div>
                 <strong>Email Support</strong>
-                <span>support@copyspark.app</span>
+                <span>jigneshdhandhukiya63@gmail.com</span>
               </div>
             </a>
 
             <a
-              href="https://wa.me/919999999999"
+              href="https://wa.me/919099121097"
               className="support-widget-link"
               target="_blank"
               rel="noopener noreferrer"
