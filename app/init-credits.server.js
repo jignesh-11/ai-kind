@@ -6,7 +6,7 @@ import { sendInstallNotification } from "./notify-install.server";
  * This ensures that every new merchant gets 30 free credits immediately upon first access.
  * 
  * @param {string} shop - The shop domain
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} true if this is a new install
  */
 export async function initializeFreeCredits(shop) {
     try {
@@ -32,8 +32,10 @@ export async function initializeFreeCredits(shop) {
 
             // Fire-and-forget email notification — never blocks app loading
             sendInstallNotification(shop).catch(() => { });
+            return true;
         } else {
             console.log(`[Init Credits] Shop ${shop} already has usage stats. Credits: ${existingUsage.credits}`);
+            return false;
         }
     } catch (error) {
         console.error(`[Init Credits] Error initializing credits for ${shop}:`, error);

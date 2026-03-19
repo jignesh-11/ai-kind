@@ -13,32 +13,24 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
 
   // Initialize 30 free credits for new installations
-  await initializeFreeCredits(session.shop);
+  const isNewInstall = await initializeFreeCredits(session.shop);
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", isNewInstall };
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, isNewInstall } = useLoaderData();
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <NavMenu>
-        <Link to="/app" rel="home">
-          Dashboard
-        </Link>
-        <Link to="/app/descriptions">
-          Product Descriptions
-        </Link>
-        <Link to="/app/seo">
-          SEO Generator
-        </Link>
-        {/* <Link to="/app/plans">
-          Plans & Billing
-        </Link> */}
+        <Link to="/app" rel="home">Dashboard</Link>
+        <Link to="/app/descriptions">Product Descriptions</Link>
+        <Link to="/app/seo">SEO Generator</Link>
+        <Link to="/app/audit">SEO Audit</Link>
       </NavMenu>
       <Outlet />
-      <SupportWidget />
+      <SupportWidget defaultOpen={isNewInstall} />
     </AppProvider>
   );
 }

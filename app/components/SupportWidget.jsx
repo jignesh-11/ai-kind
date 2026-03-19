@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
 import "../styles/support-widget.css";
 
-export default function SupportWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function SupportWidget({ defaultOpen = false }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
   const toggleWidget = useCallback(() => {
     setIsOpen((prev) => !prev);
