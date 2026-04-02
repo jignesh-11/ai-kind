@@ -45,7 +45,7 @@ const getApiKeys = () => {
 };
 
 // Basic getter for the raw model if needed (legacy)
-export const getGeminiModel = (modelName = "gemini-2.0-flash") => {
+export const getGeminiModel = (modelName = "gemini-1.5-flash") => {
     const keys = getApiKeys();
     if (keys.length === 0) throw new Error("No Gemini keys found");
     const randomKey = keys[Math.floor(Math.random() * keys.length)];
@@ -57,7 +57,7 @@ export const getGeminiModel = (modelName = "gemini-2.0-flash") => {
  * Generate text content with automatic key rotation and retry.
  * Returns a plain text string.
  */
-export const generateContentSafe = async (prompt, modelName = "gemini-2.0-flash") => {
+export const generateContentSafe = async (prompt, modelName = "gemini-2.5-flash") => {
     const keys = getApiKeys();
     if (keys.length === 0) throw new Error("No valid GEMINI_API_KEY found.");
 
@@ -88,7 +88,7 @@ export const generateContentSafe = async (prompt, modelName = "gemini-2.0-flash"
  * @param {object} schema  - Gemini responseSchema object
  * @param {string} modelName
  */
-export const generateJsonSafe = async (prompt, schema, modelName = "gemini-2.0-flash") => {
+export const generateJsonSafe = async (prompt, schema, modelName = "gemini-2.5-flash") => {
     const keys = getApiKeys();
     if (keys.length === 0) throw new Error("No valid GEMINI_API_KEY found.");
 
