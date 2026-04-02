@@ -38,21 +38,64 @@ model UsageStat {
   shop                  String   @unique
   descriptionsGenerated Int      @default(0)
   seoGenerated          Int      @default(0)
-  
+
   // Billing fields
   monthlyUsageCount     Int      @default(0)
   billingCycleStart     DateTime @default(now())
-  
+
   // Subscription info
   subscriptionId        String?
   planName              String?
-  planStatus            String?  // ACTIVE, CANCELLED, etc.
-  
-  // Credits (if we want to store pre-paid style or just track remaining free)
-  credits               Int      @default(30) // Default free credits
-  
+  planStatus            String?
+
+  // Credits
+  credits               Int      @default(30)
+
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   @@map("usage_stat")
+}
+
+// Shop-level defaults: tone, language, length, brand voice
+model ShopSettings {
+  shop             String   @id
+  defaultTone      String   @default("professional")
+  defaultLang      String   @default("English")
+  defaultLen       String   @default("short")
+  brandVoice       String?
+  brandVoicePrompt String?
+  updatedAt        DateTime @updatedAt
+
+  @@map("shop_settings")
+}
+
+// Version history for product descriptions (keep last 10 per product)
+model DescriptionHistory {
+  id           String   @id @default(uuid())
+  shop         String
+  productId    String
+  productTitle String
+  content      String
+  tone         String
+  language     String
+  createdAt    DateTime @default(now())
+
+  @@index([shop, productId])
+  @@map("description_history")
+}
+
+// Version history for SEO meta (keep last 10 per product)
+model SeoHistory {
+  id             String   @id @default(uuid())
+  shop           String
+  productId      String
+  productTitle   String
+  seoTitle       String
+  seoDescription String
+  keywords       String?
+  createdAt      DateTime @default(now())
+
+  @@index([shop, productId])
+  @@map("seo_history")
 }

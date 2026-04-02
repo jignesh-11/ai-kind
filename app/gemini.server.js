@@ -6,16 +6,14 @@ const getApiKeys = () => {
     const cleanKey = (k) => {
         if (!k) return null;
         let trimmed = k.trim();
-        // Remove quotes if user added them
         if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
             trimmed = trimmed.slice(1, -1);
         }
-        // Basic validation: must be reasonably long
         if (trimmed.length < 10) return null;
         return trimmed;
     };
 
-    // 1. Primary legacy key (or list accidentally put in single var)
+    // 1. Primary key (supports comma-separated list in single var)
     if (process.env.GEMINI_API_KEY) {
         if (process.env.GEMINI_API_KEY.includes(',')) {
             process.env.GEMINI_API_KEY.split(',').forEach(raw => {
@@ -28,7 +26,7 @@ const getApiKeys = () => {
         }
     }
 
-    // 2. Comma-separated list
+    // 2. Comma-separated list variable
     if (process.env.GEMINI_API_KEYS) {
         process.env.GEMINI_API_KEYS.split(',').forEach(raw => {
             const k = cleanKey(raw);
@@ -36,7 +34,7 @@ const getApiKeys = () => {
         });
     }
 
-    // 3. Indexed keys (GEMINI_API_KEY_1, ..._20)
+    // 3. Indexed keys GEMINI_API_KEY_1 ... GEMINI_API_KEY_20
     for (let i = 1; i <= 20; i++) {
         const raw = process.env[`GEMINI_API_KEY_${i}`];
         const k = cleanKey(raw);
@@ -47,7 +45,7 @@ const getApiKeys = () => {
 };
 
 // Basic getter for the raw model if needed (legacy)
-export const getGeminiModel = (modelName = "gemini-1.5-flash") => {
+export const getGeminiModel = (modelName = "gemini-2.0-flash") => {
     const keys = getApiKeys();
     if (keys.length === 0) throw new Error("No Gemini keys found");
     const randomKey = keys[Math.floor(Math.random() * keys.length)];
@@ -55,33 +53,67 @@ export const getGeminiModel = (modelName = "gemini-1.5-flash") => {
     return genAI.getGenerativeModel({ model: modelName });
 };
 
-// Robust generator with auto-retry
-export const generateContentSafe = async (prompt, modelName = "gemini-2.5-flash") => {
+/**
+ * Generate text content with automatic key rotation and retry.
+ * Returns a plain text string.
+ */
+export const generateContentSafe = async (prompt, modelName = "gemini-2.0-flash") => {
     const keys = getApiKeys();
     if (keys.length === 0) throw new Error("No valid GEMINI_API_KEY found.");
 
-    // Shuffle keys to distribute load, but ensure we try ALL of them if needed
     const shuffledKeys = [...keys].sort(() => 0.5 - Math.random());
-
     let lastError = null;
 
     for (const key of shuffledKeys) {
         try {
-            console.log(`[Gemini Server] Trying key ...${key.slice(-4)}`);
+            console.log(`[Gemini] Trying key ...${key.slice(-4)}`);
             const genAI = new GoogleGenerativeAI(key);
             const model = genAI.getGenerativeModel({ model: modelName });
-
             const result = await model.generateContent(prompt);
-            const response = await result.response;
-            return response.text(); // Return pure text string
-
+            return result.response.text();
         } catch (error) {
-            console.warn(`[Gemini Server] Key ...${key.slice(-4)} failed: ${error.message}`);
+            console.warn(`[Gemini] Key ...${key.slice(-4)} failed: ${error.message}`);
             lastError = error;
-            // Continue to next key...
         }
     }
 
-    console.error(`[Gemini Server] All ${keys.length} keys failed.`);
-    throw new Error(`Failed to generate content after trying ${keys.length} keys. Last error: ${lastError?.message}`);
+    throw new Error(`All ${keys.length} Gemini keys failed. Last error: ${lastError?.message}`);
+};
+
+/**
+ * Generate structured JSON using Gemini's native JSON mode.
+ * Returns a parsed JS object — no regex cleanup needed.
+ *
+ * @param {string} prompt
+ * @param {object} schema  - Gemini responseSchema object
+ * @param {string} modelName
+ */
+export const generateJsonSafe = async (prompt, schema, modelName = "gemini-2.0-flash") => {
+    const keys = getApiKeys();
+    if (keys.length === 0) throw new Error("No valid GEMINI_API_KEY found.");
+
+    const shuffledKeys = [...keys].sort(() => 0.5 - Math.random());
+    let lastError = null;
+
+    for (const key of shuffledKeys) {
+        try {
+            console.log(`[Gemini JSON] Trying key ...${key.slice(-4)}`);
+            const genAI = new GoogleGenerativeAI(key);
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema,
+                },
+            });
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            return JSON.parse(text);
+        } catch (error) {
+            console.warn(`[Gemini JSON] Key ...${key.slice(-4)} failed: ${error.message}`);
+            lastError = error;
+        }
+    }
+
+    throw new Error(`All ${keys.length} Gemini keys failed. Last error: ${lastError?.message}`);
 };

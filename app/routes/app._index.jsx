@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, Grid, List } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
-import { SearchIcon, MagicIcon } from "@shopify/polaris-icons";
+import { SearchIcon, MagicIcon, CheckCircleIcon } from "@shopify/polaris-icons";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
@@ -10,55 +10,35 @@ import { initializeFreeCredits } from "../init-credits.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-
-  // Initialize 30 free credits for new installations
   await initializeFreeCredits(session.shop);
 
-  if (!prisma) {
-    console.error("Prisma client is undefined");
+  if (!prisma || !prisma.usageStat) {
     return json({ descriptionsGenerated: 0, seoGenerated: 0 });
   }
 
-  // Defensive check for usageStat
-  if (!prisma.usageStat) {
-    return json({ descriptionsGenerated: 0, seoGenerated: 0 });
-  }
-
-  const stats = await prisma.usageStat.findUnique({
-    where: { shop: session.shop }
-  });
+  const stats = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
 
   return json({
     descriptionsGenerated: stats?.descriptionsGenerated || 0,
-    seoGenerated: stats?.seoGenerated || 0
+    seoGenerated:          stats?.seoGenerated          || 0,
   });
 };
 
 export default function Dashboard() {
   const { descriptionsGenerated, seoGenerated } = useLoaderData() || {};
   const navigate = useNavigate();
-  // Removed useAppBridge() as per migration guide - utilizing window.shopify global instead
 
   useEffect(() => {
-    // Explicitly fetch session token to satisfy Shopify's "Using session tokens" check
     const pingBackend = async () => {
       try {
-        // For App Bridge v4, use window.shopify.idToken() if available
-        // The @shopify/shopify-app-remix package handles session tokens automatically
-        if (window.shopify && window.shopify.idToken) {
+        if (window.shopify?.idToken) {
           const token = await window.shopify.idToken();
-          console.log("[Auth Check] Session Token retrieved successfully.");
-
-          // Fire a request to our authenticated ping endpoint
-          await fetch("/app/api/ping", {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          await fetch("/app/api/ping", { headers: { Authorization: `Bearer ${token}` } });
         }
       } catch (err) {
-        console.warn("[Auth Check] Failed to retrieve session token:", err);
+        console.warn("[Auth Check] Failed:", err);
       }
     };
-
     pingBackend();
   }, []);
 
@@ -77,11 +57,10 @@ export default function Dashboard() {
           </BlockStack>
         </Box>
 
-        {/* Tools Grid */}
         <Layout>
           <Layout.Section>
             <Grid>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
                 <Card>
                   <BlockStack gap="400">
                     <InlineStack gap="400" align="start" blockAlign="center">
@@ -91,8 +70,7 @@ export default function Dashboard() {
                       <Text as="h2" variant="headingMd">Product Descriptions</Text>
                     </InlineStack>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      Generate compelling, SEO-friendly product descriptions in bulk or individually.
-                      Supports multiple tones and languages.
+                      Generate and rewrite product descriptions in bulk. Supports multiple tones and 9 languages.
                     </Text>
                     <InlineStack align="end">
                       <Button onClick={() => navigate("/app/descriptions")} variant="primary">Open Tool</Button>
@@ -101,7 +79,7 @@ export default function Dashboard() {
                 </Card>
               </Grid.Cell>
 
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
                 <Card>
                   <BlockStack gap="400">
                     <InlineStack gap="400" align="start" blockAlign="center">
@@ -111,11 +89,29 @@ export default function Dashboard() {
                       <Text as="h2" variant="headingMd">SEO Generator</Text>
                     </InlineStack>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      Optimize your search rankings with AI-generated Meta Titles and Descriptions.
-                      Target specific keywords and boost click-through rates.
+                      Generate SEO titles and meta descriptions. Live SERP preview and version history included.
                     </Text>
                     <InlineStack align="end">
                       <Button onClick={() => navigate("/app/seo")} variant="primary">Open Tool</Button>
+                    </InlineStack>
+                  </BlockStack>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                <Card>
+                  <BlockStack gap="400">
+                    <InlineStack gap="400" align="start" blockAlign="center">
+                      <Box background="bg-surface-warning" padding="200" borderRadius="200">
+                        <CheckCircleIcon width={30} />
+                      </Box>
+                      <Text as="h2" variant="headingMd">SEO Audit</Text>
+                    </InlineStack>
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      Scan all products for SEO issues. Get a store-wide health score and per-product breakdown.
+                    </Text>
+                    <InlineStack align="end">
+                      <Button onClick={() => navigate("/app/audit")} variant="primary">Run Audit</Button>
                     </InlineStack>
                   </BlockStack>
                 </Card>
@@ -130,18 +126,18 @@ export default function Dashboard() {
                 <Grid>
                   <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
                     <List>
-                      <List.Item>🚀 Generate descriptions from scratch or rewrite existing ones</List.Item>
-                      <List.Item>📦 Bulk Generation support for efficient catalog updates</List.Item>
-                      <List.Item>🎯 SEO Optimization with AI-generated Meta Titles & Descriptions</List.Item>
-                      <List.Item>🌍 Support for 9+ Languages (English, Spanish, French, etc.)</List.Item>
+                      <List.Item>Generate descriptions from scratch or rewrite existing ones</List.Item>
+                      <List.Item>Bulk generation for efficient catalog updates</List.Item>
+                      <List.Item>Version history with one-click restore</List.Item>
+                      <List.Item>Support for 9 languages</List.Item>
                     </List>
                   </Grid.Cell>
                   <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
                     <List>
-                      <List.Item>🎨 Multiple Professional Tones (Premium, Witty, Persuasive)</List.Item>
-                      <List.Item>📝 Custom Instructions for precise AI control</List.Item>
-                      <List.Item>💾 Direct Integration - Save updates in one click</List.Item>
-                      <List.Item>⚡️ Lightning-fast intelligent content generation</List.Item>
+                      <List.Item>Live Google SERP preview for SEO tags</List.Item>
+                      <List.Item>Character count validation with visual indicators</List.Item>
+                      <List.Item>Store-wide SEO health audit with scores</List.Item>
+                      <List.Item>Brand voice and product context aware generation</List.Item>
                     </List>
                   </Grid.Cell>
                 </Grid>

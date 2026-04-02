@@ -17,12 +17,14 @@
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/privacy": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.generate": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.descriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.api.ping": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.save": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.audit": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.plans": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.seo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
@@ -90,20 +92,20 @@
           "runtime": "nodejs"
         }
       },
-      "routes/_index": {
-        "id": "routes/_index",
-        "parentId": "root",
-        "file": "app/routes/_index/route.jsx",
-        "index": true,
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/auth.$": {
         "id": "routes/auth.$",
         "parentId": "root",
         "file": "app/routes/auth.$.jsx",
         "path": "auth/*",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/_index": {
+        "id": "routes/_index",
+        "parentId": "root",
+        "file": "app/routes/_index/route.jsx",
+        "index": true,
         "config": {
           "runtime": "nodejs"
         }
@@ -133,6 +135,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.api.ping": {
+        "id": "routes/app.api.ping",
+        "parentId": "routes/app",
+        "file": "app/routes/app.api.ping.jsx",
+        "path": "api/ping",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.api.save": {
         "id": "routes/app.api.save",
         "parentId": "routes/app",
@@ -147,6 +158,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app._index.jsx",
         "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.audit": {
+        "id": "routes/app.audit",
+        "parentId": "routes/app",
+        "file": "app/routes/app.audit.jsx",
+        "path": "audit",
         "config": {
           "runtime": "nodejs"
         }
@@ -172,9 +192,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/home/jignesh/Neh/jignesh-bpe/app",
+    "appDirectory": "C:\\Users\\jigne\\Neh\\live-seo-desc\\app",
     "basename": "/",
-    "buildDirectory": "/home/jignesh/Neh/jignesh-bpe/build",
+    "buildDirectory": "C:\\Users\\jigne\\Neh\\live-seo-desc\\build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,
@@ -234,17 +254,17 @@
         "file": "routes/privacy.jsx",
         "path": "privacy"
       },
-      "routes/_index": {
-        "id": "routes/_index",
-        "parentId": "root",
-        "file": "routes/_index/route.jsx",
-        "index": true
-      },
       "routes/auth.$": {
         "id": "routes/auth.$",
         "parentId": "root",
         "file": "routes/auth.$.jsx",
         "path": "auth/*"
+      },
+      "routes/_index": {
+        "id": "routes/_index",
+        "parentId": "root",
+        "file": "routes/_index/route.jsx",
+        "index": true
       },
       "routes/app": {
         "id": "routes/app",
@@ -264,6 +284,12 @@
         "file": "routes/app.descriptions.jsx",
         "path": "descriptions"
       },
+      "routes/app.api.ping": {
+        "id": "routes/app.api.ping",
+        "parentId": "routes/app",
+        "file": "routes/app.api.ping.jsx",
+        "path": "api/ping"
+      },
       "routes/app.api.save": {
         "id": "routes/app.api.save",
         "parentId": "routes/app",
@@ -275,6 +301,12 @@
         "parentId": "routes/app",
         "file": "routes/app._index.jsx",
         "index": true
+      },
+      "routes/app.audit": {
+        "id": "routes/app.audit",
+        "parentId": "routes/app",
+        "file": "routes/app.audit.jsx",
+        "path": "audit"
       },
       "routes/app.plans": {
         "id": "routes/app.plans",
