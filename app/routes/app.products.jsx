@@ -3,7 +3,6 @@ import { useLoaderData } from "@remix-run/react";
 import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { fetchAltTextHistory } from "../alttext.server";
 import { useState } from "react";
 
 export const loader = async ({ request }) => {
@@ -34,28 +33,12 @@ export const loader = async ({ request }) => {
   const responseJson = await response.json();
   const products = responseJson.data.products.nodes;
 
-  // Fetch alt text history from our database for all products
-  const altTextHistoryMap = new Map();
-  for (const product of products) {
-    const history = await fetchAltTextHistory(session.shop, product.id);
-    if (history.length > 0) {
-      // Group by image URL with most recent alt text
-      const byUrl = new Map();
-      history.forEach(h => {
-        if (!byUrl.has(h.imageUrl) || new Date(h.createdAt) > new Date(byUrl.get(h.imageUrl).createdAt)) {
-          byUrl.set(h.imageUrl, h);
-        }
-      });
-      altTextHistoryMap.set(product.id, byUrl);
-    }
-  }
-
+  // Only use Shopify's actual alt text as source of truth
   const productsWithAltText = products.map(p => {
-    const altTextMap = altTextHistoryMap.get(p.id);
     const images = p.images?.nodes?.map(img => ({
       ...img,
-      // Use generated alt text if available, otherwise use Shopify's
-      altText: altTextMap?.get(img.url)?.generatedAltText || img.altText,
+      // Use ONLY Shopify's alt text - this is the source of truth
+      altText: img.altText,
     })) || [];
 
     return {
