@@ -1,11 +1,59 @@
 import {
   Page, Layout, Card, Text, BlockStack, InlineStack, Badge,
-  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid
+  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
+import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
+import { useState } from "react";
 import { authenticate } from "../shopify.server";
+import { generateAuditPDF, logAuditExport } from "../pdf.server";
+import prisma from "../db.server";
+
+/**
+ * Compute recommended fixes from audit data
+ * Groups issues by type and severity
+ */
+function computeRecommendedFixes(products) {
+  const fixes = new Map();
+  const severityOrder = { high: 0, medium: 1, low: 2 };
+
+  products.forEach((product) => {
+    product.audit?.issues?.forEach((issue) => {
+      let fixType = "Other";
+      if (issue.msg.includes("SEO") || issue.msg.includes("title") || issue.msg.includes("description")) {
+        fixType = "Missing or Incomplete SEO Tags";
+      } else if (issue.msg.includes("alt text") || issue.msg.includes("image")) {
+        fixType = "Missing Image Alt Text";
+      } else if (issue.msg.includes("description") || issue.msg.includes("brief")) {
+        fixType = "Short Product Descriptions";
+      }
+
+      if (!fixes.has(fixType)) {
+        fixes.set(fixType, { products: [], severity: issue.severity, count: 0 });
+      }
+
+      const fix = fixes.get(fixType);
+      fix.count++;
+      if (!fix.products.find((p) => p.productId === product.id)) {
+        fix.products.push({
+          productId: product.id,
+          productTitle: product.title,
+          issue: issue.msg,
+        });
+      }
+    });
+  });
+
+  return Array.from(fixes.entries())
+    .map(([type, data]) => ({
+      type,
+      count: data.count,
+      severity: data.severity,
+      products: data.products.slice(0, 5),
+    }))
+    .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+}
 
 function auditProduct(product) {
   const issues = [];
@@ -35,6 +83,74 @@ function auditProduct(product) {
 
   return { issues, score };
 }
+
+export const action = async ({ request }) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, { status: 405 });
+  }
+
+  const { admin, session } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  // ── Download audit as PDF ──────────────────────────────────────
+  if (intent === "download_pdf") {
+    try {
+      const response = await admin.graphql(
+        `#graphql
+        query getProductsForAudit {
+          products(first: 50, sortKey: TITLE) {
+            nodes {
+              id title productType vendor
+              descriptionHtml
+              featuredImage { url altText }
+              seo { title description }
+            }
+          }
+        }`
+      );
+      const responseJson = await response.json();
+      const products = responseJson.data.products.nodes;
+
+      const audited = products.map(p => ({
+        ...p,
+        audit: auditProduct(p),
+      }));
+
+      const totalScore  = audited.length > 0 ? Math.round(audited.reduce((s, p) => s + p.audit.score, 0) / audited.length) : 0;
+      const perfect     = audited.filter(p => p.audit.issues.length === 0).length;
+      const hasIssues   = audited.filter(p => p.audit.issues.length > 0).length;
+      const missingDesc = audited.filter(p => !(p.descriptionHtml || "").replace(/<[^>]*>/g, "").trim()).length;
+      const missingSeo  = audited.filter(p => !p.seo?.title || !p.seo?.description).length;
+
+      const auditData = {
+        products: audited,
+        totalScore,
+        perfect,
+        hasIssues,
+        missingDesc,
+        missingSeo,
+      };
+
+      const pdfBuffer = await generateAuditPDF(auditData, session.shop);
+
+      // Log the export
+      await logAuditExport(prisma, session.shop, totalScore, audited.length, audited.reduce((sum, p) => sum + p.audit.issues.length, 0));
+
+      return new Response(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="audit-${new Date().toISOString().split("T")[0]}.pdf"`,
+        },
+      });
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      return json({ error: `Failed to generate PDF. Error: ${error.message}` }, { status: 500 });
+    }
+  }
+
+  return json({ error: "Invalid intent" }, { status: 400 });
+};
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -66,19 +182,32 @@ export const loader = async ({ request }) => {
   const missingDesc = audited.filter(p => !(p.descriptionHtml || "").replace(/<[^>]*>/g, "").trim()).length;
   const missingSeo  = audited.filter(p => !p.seo?.title || !p.seo?.description).length;
 
-  return json({ products: audited, totalScore, perfect, hasIssues, missingDesc, missingSeo });
+  const recommendedFixes = computeRecommendedFixes(audited);
+
+  return json({ products: audited, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes });
 };
 
 export default function SeoAudit() {
-  const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo } = useLoaderData();
+  const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes } = useLoaderData();
   const navigate = useNavigate();
+  const submit = useSubmit();
 
   const scoreColor = totalScore >= 80 ? "success" : totalScore >= 50 ? "warning" : "critical";
   const scoreTone  = totalScore >= 80 ? "success" : totalScore >= 50 ? "caution" : "critical";
 
+  const handleDownloadPDF = () => {
+    const formData = new FormData();
+    formData.append("intent", "download_pdf");
+    submit(formData, { method: "POST" });
+  };
+
   return (
     <Page>
-      <TitleBar title="SEO Health Audit" />
+      <TitleBar title="SEO Health Audit">
+        <button onClick={handleDownloadPDF} style={{ padding: "8px 16px", borderRadius: "4px", backgroundColor: "#0066ff", color: "white", border: "none", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}>
+          ↓ Download PDF
+        </button>
+      </TitleBar>
       <BlockStack gap="600">
 
         {/* ── Store Score ── */}
@@ -114,6 +243,66 @@ export default function SeoAudit() {
             </Grid>
           </BlockStack>
         </Card>
+
+        {/* ── Recommended Fixes ── */}
+        {recommendedFixes.length > 0 && (
+          <Card>
+            <BlockStack gap="400">
+              <Text as="h2" variant="headingMd">Recommended Fixes</Text>
+              <BlockStack gap="300">
+                {recommendedFixes.map((fix, index) => (
+                  <Box key={index} padding="300" background="bg-surface-secondary" borderRadius="200">
+                    <BlockStack gap="200">
+                      <InlineStack blockAlign="center" gap="200">
+                        <Badge tone={fix.severity === "high" ? "critical" : fix.severity === "medium" ? "warning" : "info"}>
+                          {fix.severity.toUpperCase()}
+                        </Badge>
+                        <Text fontWeight="bold">{fix.type}</Text>
+                        <Text tone="subdued">({fix.count} issue{fix.count !== 1 ? "s" : ""})</Text>
+                      </InlineStack>
+                      {fix.products.length > 0 && (
+                        <BlockStack gap="100">
+                          <Text variant="bodySm" tone="subdued">
+                            Affected products:
+                          </Text>
+                          <BlockStack gap="100">
+                            {fix.products.slice(0, 3).map((product, i) => (
+                              <Text key={i} variant="bodySm">
+                                • {product.productTitle}
+                              </Text>
+                            ))}
+                            {fix.products.length > 3 && (
+                              <Text variant="bodySm" tone="subdued">
+                                ... and {fix.products.length - 3} more
+                              </Text>
+                            )}
+                          </BlockStack>
+                        </BlockStack>
+                      )}
+                      <InlineStack gap="200">
+                        {fix.type.includes("SEO") && (
+                          <Button size="slim" onClick={() => navigate("/app/seo")}>
+                            Fix SEO
+                          </Button>
+                        )}
+                        {fix.type.includes("Description") && (
+                          <Button size="slim" onClick={() => navigate("/app/descriptions")}>
+                            Fix Descriptions
+                          </Button>
+                        )}
+                        {fix.type.includes("Alt Text") && (
+                          <Button size="slim" onClick={() => navigate("/app/products")} variant="primary">
+                            Generate Alt Text
+                          </Button>
+                        )}
+                      </InlineStack>
+                    </BlockStack>
+                  </Box>
+                ))}
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        )}
 
         {/* ── Products table ── */}
         <Card>

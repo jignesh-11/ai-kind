@@ -38,6 +38,8 @@ model UsageStat {
   shop                  String   @unique
   descriptionsGenerated Int      @default(0)
   seoGenerated          Int      @default(0)
+  altTextGenerated      Int      @default(0)
+  pdfExported           Int      @default(0)
 
   // Billing fields
   monthlyUsageCount     Int      @default(0)
@@ -98,4 +100,31 @@ model SeoHistory {
 
   @@index([shop, productId])
   @@map("seo_history")
+}
+
+// Alt text history for product images (keep last 5 per image per product)
+model AltTextHistory {
+  id               String   @id @default(uuid())
+  shop             String
+  productId        String
+  productTitle     String
+  imageUrl         String
+  generatedAltText String
+  createdAt        DateTime @default(now())
+
+  @@index([shop, productId])
+  @@map("alt_text_history")
+}
+
+// Audit export log for tracking PDF downloads
+model AuditExport {
+  id             String   @id @default(uuid())
+  shop           String
+  totalScore     Int
+  productsCount  Int
+  issuesCount    Int
+  exportedAt     DateTime @default(now())
+
+  @@index([shop])
+  @@map("audit_export")
 }
