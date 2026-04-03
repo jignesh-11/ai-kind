@@ -223,9 +223,9 @@ export default function ProductsPage() {
                             {statusBadge.label}
                           </Badge>
 
-                          {product.hasImages && product.totalImages > 0 && (
+                          {product.hasImages && product.imagesWithoutAlt > 0 && (
                             <Text variant="bodySm" tone="subdued">
-                              {product.imagesWithoutAlt} of {product.totalImages} image{product.totalImages !== 1 ? "s" : ""} need{product.imagesWithoutAlt === 0 ? "" : "s"} alt text
+                              {product.imagesWithoutAlt} of {product.totalImages} image{product.totalImages !== 1 ? "s" : ""} need{product.imagesWithoutAlt === 1 ? "s" : ""} alt text
                             </Text>
                           )}
                         </BlockStack>
@@ -243,9 +243,9 @@ export default function ProductsPage() {
                           )}
                           <Button
                             size="slim"
-                            onClick={() => navigate(`/app`)}
+                            onClick={() => navigate(`/app/products/${product.id}`)}
                           >
-                            View
+                            View Details
                           </Button>
                         </InlineStack>
                       </BlockStack>
