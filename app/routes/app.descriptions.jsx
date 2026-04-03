@@ -390,7 +390,24 @@ export default function Descriptions() {
   const [editingField, setEditingField] = useState(null);
   const [modalDescription, setModalDescription] = useState("");
 
+  // ── search ────────────────────────────────────────────────────────────────
+  const [searchTerm, setSearchTerm] = useState("");
+
   const isLoading = navigation.state === "submitting";
+
+  // Auto-load product from URL param (from audit page "Fix Desc" button)
+  useEffect(() => {
+    const url = new URL(window.location);
+    const urlProductId = url.searchParams.get("productId");
+    if (urlProductId && loaderData?.products) {
+      const product = loaderData.products.find(p => p.id === urlProductId);
+      if (product) {
+        handleStartSingle(product);
+        // Clear the param from URL
+        window.history.replaceState({}, "", "/app/descriptions");
+      }
+    }
+  }, []);
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(fetchedProducts);
 
@@ -845,9 +862,24 @@ export default function Descriptions() {
               <Card>
                 <BlockStack gap="400">
                   <Text variant="headingMd" as="h2">Select Products to Improve</Text>
+                  <TextField
+                    label="Search products"
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Search by product name, type, or brand..."
+                    clearButton
+                    onClearButtonClick={() => setSearchTerm("")}
+                  />
+                  {(() => {
+                    const filtered = fetchedProducts.filter(p =>
+                      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
+                    );
+                    return (
                   <IndexTable
                     resourceName={{ singular: "product", plural: "products" }}
-                    itemCount={fetchedProducts.length}
+                    itemCount={filtered.length}
                     selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
                     onSelectionChange={handleSelectionChange}
                     headings={[
@@ -859,7 +891,7 @@ export default function Descriptions() {
                     ]}
                     promotedBulkActions={[{ content: "Edit Selected", onAction: handleStartBulk }]}
                   >
-                    {fetchedProducts.map((product, index) => (
+                    {filtered.map((product, index) => (
                       <IndexTable.Row
                         id={product.id}
                         key={product.id}
@@ -898,6 +930,8 @@ export default function Descriptions() {
                       </IndexTable.Row>
                     ))}
                   </IndexTable>
+                    );
+                  })()}
 
                   {/* Pagination */}
                   {loaderData?.pagination && (

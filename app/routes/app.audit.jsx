@@ -391,8 +391,8 @@ export default function SeoAudit() {
                     </IndexTable.Cell>
                     <IndexTable.Cell>
                       <InlineStack gap="200">
-                        <Button size="slim" onClick={() => navigate("/app/seo")}>Fix SEO</Button>
-                        <Button size="slim" onClick={() => navigate("/app/descriptions")}>Fix Desc</Button>
+                        <Button size="slim" onClick={() => navigate(`/app/seo?productId=${product.id}`)}>Fix SEO</Button>
+                        <Button size="slim" onClick={() => navigate(`/app/descriptions?productId=${product.id}`)}>Fix Desc</Button>
                       </InlineStack>
                     </IndexTable.Cell>
                   </IndexTable.Row>

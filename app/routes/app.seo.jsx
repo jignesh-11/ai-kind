@@ -262,12 +262,27 @@ export default function SeoGenerator() {
   const [generatedSeoDescription, setGeneratedSeoDescription] = useState("");
 
   const [keywords, setKeywords] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   // History
   const [history, setHistory] = useState([]);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const isLoading = navigation.state === "submitting";
+
+  // Auto-load product from URL param (from audit page "Fix SEO" button)
+  useEffect(() => {
+    const url = new URL(window.location);
+    const urlProductId = url.searchParams.get("productId");
+    if (urlProductId && loaderData?.products) {
+      const product = loaderData.products.find(p => p.id === urlProductId);
+      if (product) {
+        selectProduct(product.id);
+        // Clear the param from URL
+        window.history.replaceState({}, "", "/app/seo");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!actionData) return;
@@ -477,10 +492,29 @@ export default function SeoGenerator() {
               /* ── Product list ── */
               <Card>
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">Select a Product to Optimize</Text>
-                  <IndexTable
-                    resourceName={{ singular: "product", plural: "products" }}
-                    itemCount={loaderData?.products?.length || 0}
+                  <BlockStack gap="300">
+                    <InlineStack blockAlign="center" gap="300">
+                      <Text variant="headingMd" as="h2">Select a Product to Optimize</Text>
+                    </InlineStack>
+                    <TextField
+                      label="Search products"
+                      value={searchTerm}
+                      onChange={setSearchTerm}
+                      placeholder="Search by product name, type, or brand..."
+                      clearButton
+                      onClearButtonClick={() => setSearchTerm("")}
+                    />
+                  </BlockStack>
+                  {(() => {
+                    const filtered = loaderData?.products?.filter(p =>
+                      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
+                    ) || [];
+                    return (
+                    <IndexTable
+                      resourceName={{ singular: "product", plural: "products" }}
+                      itemCount={filtered.length}
                     headings={[
                       { title: "Image" },
                       { title: "Product" },
@@ -490,7 +524,7 @@ export default function SeoGenerator() {
                     ]}
                     selectable={false}
                   >
-                    {loaderData?.products?.map((product, index) => (
+                    {filtered?.map((product, index) => (
                       <IndexTable.Row id={product.id} key={product.id} position={index}>
                         <IndexTable.Cell>
                           {product.featuredImage?.url ? (
@@ -531,7 +565,9 @@ export default function SeoGenerator() {
                         </IndexTable.Cell>
                       </IndexTable.Row>
                     ))}
-                  </IndexTable>
+                    </IndexTable>
+                    );
+                  })()}
 
                   {/* Pagination */}
                   {loaderData?.pagination && (
