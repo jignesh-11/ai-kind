@@ -329,7 +329,17 @@ export default function SeoAudit() {
                 .map((product, index) => (
                   <IndexTable.Row id={product.id} key={product.id} position={index}>
                     <IndexTable.Cell>
-                      <Thumbnail source={product.featuredImage?.url || ""} alt={product.featuredImage?.altText || product.title} size="small" />
+                      {product.featuredImage?.url ? (
+                        <Thumbnail source={product.featuredImage.url} alt={product.featuredImage?.altText || product.title} size="small" />
+                      ) : (
+                        <Box style={{ width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#e8eaed", borderRadius: "4px" }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 15l-5-5L5 21" />
+                          </svg>
+                        </Box>
+                      )}
                     </IndexTable.Cell>
                     <IndexTable.Cell>
                       <Text fontWeight="bold" as="span">{product.title}</Text>

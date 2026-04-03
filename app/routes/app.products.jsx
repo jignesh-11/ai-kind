@@ -386,17 +386,28 @@ export default function ProductsPage() {
                             overflow: "hidden",
                             borderRadius: "4px",
                             backgroundColor: "#f0f0f0",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
-                          <img
-                            src={image.url}
-                            alt={image.altText || `Image ${index + 1}`}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
+                          {image.url ? (
+                            <img
+                              src={image.url}
+                              alt={image.altText || `Image ${index + 1}`}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5">
+                              <rect x="3" y="3" width="18" height="18" rx="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="M21 15l-5-5L5 21" />
+                            </svg>
+                          )}
                         </Box>
                         <BlockStack gap="100" style={{ flex: 1 }}>
                           <InlineStack blockAlign="center" gap="200">
