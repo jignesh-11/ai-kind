@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { useState } from "react";
@@ -245,7 +245,7 @@ export default function ProductsPage() {
                             size="slim"
                             onClick={() => {
                               const productKey = product.id.split("/").pop(); // Extract numeric ID
-                              navigate(`/app/products/${encodeURIComponent(productKey)}`);
+                              window.location.href = `/app/products/${encodeURIComponent(productKey)}`;
                             }}
                           >
                             View Details

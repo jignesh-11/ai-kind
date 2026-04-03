@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Modal, TextContainer } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { useState } from "react";
@@ -80,7 +80,7 @@ export default function ProductDetailsPage() {
         <Card>
           <BlockStack gap="400">
             <InlineStack gap="300" blockAlign="center">
-              <Button onClick={() => navigate("/app/products")}>← Back</Button>
+              <Button onClick={() => window.location.href = "/app/products"}>← Back</Button>
               <BlockStack gap="100">
                 <Text as="h1" variant="headingLg">{product.title}</Text>
                 {product.productType && (
