@@ -130,10 +130,10 @@ ${tags ? `Tags: ${tags}` : ""}
 ${productDescription ? `Product Description: ${productDescription.substring(0, 300)}` : ""}
 Target Keywords: ${keywords}
 
-Rules:
-1. SEO Title: Max 60 characters. Include the main keyword near the beginning. Make it compelling.
-2. Meta Description: Max 160 characters. Compelling, encourages clicks, includes keywords naturally.
-3. Do NOT use the word "ultimate" or generic filler phrases.
+CRITICAL RULES - MUST FOLLOW:
+1. SEO Title: EXACTLY max 60 characters. No longer. Include main keyword at the start. Compelling.
+2. Meta Description: EXACTLY max 160 characters. NO EXCEPTIONS. Must be 160 or fewer characters. If your description exceeds 160 characters, truncate it and end with a period. Count carefully before responding.
+3. Do NOT use the word "ultimate" or generic filler phrases like "shop now", "discover", "explore".
 4. Respond ONLY with the JSON object — no explanation, no markdown.`;
 
     try {
@@ -146,6 +146,15 @@ Rules:
 
       // Use native JSON mode — no regex cleanup needed
       const seoData = await generateJsonSafe(prompt, SEO_SCHEMA);
+
+      // Safety net: enforce character limits if AI exceeds them
+      if (seoData.title && seoData.title.length > 60) {
+        seoData.title = seoData.title.substring(0, 60).trim();
+      }
+      if (seoData.description && seoData.description.length > 160) {
+        seoData.description = seoData.description.substring(0, 160).trim();
+      }
+
       return json({ generatedSeo: seoData });
     } catch (error) {
       console.error("Gemini API Error:", error);
