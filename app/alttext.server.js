@@ -173,6 +173,8 @@ export function getImagesNeedingAltText(images) {
  */
 export async function updateImageAltTextInShopify(admin, imageId, altText) {
   try {
+    console.log("Updating image alt text:", { imageId, altText });
+
     const response = await admin.graphql(
       `#graphql
       mutation updateImageAlt($imageId: ID!, $altText: String) {
@@ -191,6 +193,8 @@ export async function updateImageAltTextInShopify(admin, imageId, altText) {
     );
 
     const responseJson = await response.json();
+    console.log("Shopify response:", JSON.stringify(responseJson, null, 2));
+
     if (responseJson.errors) {
       console.error("GraphQL error updating image:", responseJson.errors);
       return false;
@@ -202,6 +206,7 @@ export async function updateImageAltTextInShopify(admin, imageId, altText) {
       return false;
     }
 
+    console.log("Image updated successfully:", imageId);
     return true;
   } catch (error) {
     console.error("Error updating image alt text:", error);

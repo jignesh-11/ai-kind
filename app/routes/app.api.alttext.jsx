@@ -134,18 +134,24 @@ export const action = async ({ request }) => {
     const productType = formData.get("productType") || "";
     const tags = formData.get("tags") || "";
 
+    console.log("Starting alt text generation:", { productId, productTitle });
+
     try {
       // Fetch all images for the product
       const images = await fetchAllProductImages(admin, productId);
+      console.log("Fetched images:", images.length);
 
       if (!images || images.length === 0) {
+        console.log("No images found for product");
         return json({ message: "No images found for this product", generated: 0 });
       }
 
       // Filter images without alt text
       const imagesToProcess = images.filter((img) => !img.altText || img.altText.trim() === "");
+      console.log("Images needing alt text:", imagesToProcess.length);
 
       if (imagesToProcess.length === 0) {
+        console.log("All images already have alt text");
         return json({ message: "All images already have alt text", generated: 0 });
       }
 
