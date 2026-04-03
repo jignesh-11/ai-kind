@@ -21,8 +21,11 @@
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.generate": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.descriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.api.alttext": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.ping": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.save": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.products.[id]": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.audit": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.plans": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -135,6 +138,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.api.alttext": {
+        "id": "routes/app.api.alttext",
+        "parentId": "routes/app",
+        "file": "app/routes/app.api.alttext.jsx",
+        "path": "api/alttext",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.api.ping": {
         "id": "routes/app.api.ping",
         "parentId": "routes/app",
@@ -152,6 +164,22 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/app.products": {
+        "id": "routes/app.products",
+        "parentId": "routes/app",
+        "file": "app/routes/app.products.jsx",
+        "path": "products",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.products.[id]": {
+        "id": "routes/app.products.[id]",
+        "parentId": "routes/app.products",
+        "file": "app/routes/app.products.[id].jsx",
+        "path": "id",
+        "config": {}
       },
       "routes/app._index": {
         "id": "routes/app._index",
@@ -284,6 +312,12 @@
         "file": "routes/app.descriptions.jsx",
         "path": "descriptions"
       },
+      "routes/app.api.alttext": {
+        "id": "routes/app.api.alttext",
+        "parentId": "routes/app",
+        "file": "routes/app.api.alttext.jsx",
+        "path": "api/alttext"
+      },
       "routes/app.api.ping": {
         "id": "routes/app.api.ping",
         "parentId": "routes/app",
@@ -295,6 +329,18 @@
         "parentId": "routes/app",
         "file": "routes/app.api.save.jsx",
         "path": "api/save"
+      },
+      "routes/app.products": {
+        "id": "routes/app.products",
+        "parentId": "routes/app",
+        "file": "routes/app.products.jsx",
+        "path": "products"
+      },
+      "routes/app.products.[id]": {
+        "id": "routes/app.products.[id]",
+        "parentId": "routes/app.products",
+        "file": "routes/app.products.[id].jsx",
+        "path": "id"
       },
       "routes/app._index": {
         "id": "routes/app._index",
