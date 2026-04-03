@@ -223,9 +223,9 @@ export default function ProductsPage() {
                             {statusBadge.label}
                           </Badge>
 
-                          {product.hasImages && (
+                          {product.hasImages && product.totalImages > 0 && (
                             <Text variant="bodySm" tone="subdued">
-                              {product.imagesWithoutAlt} of {product.totalImages} images need alt text
+                              {product.imagesWithoutAlt} of {product.totalImages} image{product.totalImages !== 1 ? "s" : ""} need{product.imagesWithoutAlt === 0 ? "" : "s"} alt text
                             </Text>
                           )}
                         </BlockStack>
