@@ -191,6 +191,7 @@ export default function SeoAudit() {
   const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes } = useLoaderData();
   const navigate = useNavigate();
   const submit = useSubmit();
+  const [isGeneratingAltText, setIsGeneratingAltText] = useState(false);
 
   const scoreColor = totalScore >= 80 ? "success" : totalScore >= 50 ? "warning" : "critical";
   const scoreTone  = totalScore >= 80 ? "success" : totalScore >= 50 ? "caution" : "critical";
@@ -199,6 +200,25 @@ export default function SeoAudit() {
     const formData = new FormData();
     formData.append("intent", "download_pdf");
     submit(formData, { method: "POST" });
+  };
+
+  const handleGenerateAltText = async () => {
+    setIsGeneratingAltText(true);
+    try {
+      const formData = new FormData();
+      formData.append("intent", "generate");
+      const response = await fetch("/app/api/alttext", { method: "POST", body: formData });
+      const data = await response.json();
+      if (data.success) {
+        alert(`Generated alt text for ${data.generatedCount} images`);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      alert(`Error generating alt text: ${error.message}`);
+    } finally {
+      setIsGeneratingAltText(false);
+    }
   };
 
   return (
@@ -291,7 +311,7 @@ export default function SeoAudit() {
                           </Button>
                         )}
                         {fix.type.includes("Alt Text") && (
-                          <Button size="slim" onClick={() => navigate("/app/products")} variant="primary">
+                          <Button size="slim" onClick={handleGenerateAltText} loading={isGeneratingAltText} disabled={isGeneratingAltText} variant="primary">
                             Generate Alt Text
                           </Button>
                         )}
