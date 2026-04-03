@@ -96,9 +96,12 @@ export default function ProductsPage() {
   const handleGenerateAltText = async (productId) => {
     setIsGenerating(true);
     try {
+      const product = products.find(p => p.id === productId);
       const formData = new FormData();
       formData.append("intent", "generate");
       formData.append("productId", productId);
+      formData.append("productTitle", product?.title || "Product");
+      formData.append("productType", product?.productType || "");
 
       const response = await fetch("/app/api/alttext", { method: "POST", body: formData });
       const data = await response.json();
