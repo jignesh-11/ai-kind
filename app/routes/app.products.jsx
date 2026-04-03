@@ -1,6 +1,7 @@
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer } from "@shopify/polaris";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { useState } from "react";
 
@@ -42,6 +43,7 @@ export const loader = async ({ request }) => {
 
 export default function ProductsPage() {
   const { products } = useLoaderData();
+  const shopify = useAppBridge();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -73,15 +75,15 @@ export default function ProductsPage() {
       const data = await response.json();
 
       if (data.generated !== undefined) {
-        alert(`Generated alt text for ${data.generated} images`);
+        shopify.toast.show(`Generated alt text for ${data.generated} image${data.generated !== 1 ? "s" : ""}`);
         setSelectedProduct(null);
         // Refresh page to show updates
         window.location.reload();
       } else {
-        alert(`Error: ${data.error || "Unknown error"}`);
+        shopify.toast.show(data.error || "Unknown error", { isError: true });
       }
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      shopify.toast.show(error.message, { isError: true });
     } finally {
       setIsGenerating(false);
     }
@@ -334,14 +336,14 @@ export default function ProductsPage() {
                       const data = await response.json();
 
                       if (data.generated !== undefined) {
-                        alert(`Generated alt text for ${data.generated} images`);
+                        shopify.toast.show(`Generated alt text for ${data.generated} image${data.generated !== 1 ? "s" : ""}`);
                         setDetailedProduct(null);
                         window.location.reload();
                       } else {
-                        alert(`Error: ${data.error || "Unknown error"}`);
+                        shopify.toast.show(data.error || "Unknown error", { isError: true });
                       }
                     } catch (error) {
-                      alert(`Error: ${error.message}`);
+                      shopify.toast.show(error.message, { isError: true });
                     } finally {
                       setIsGenerating(false);
                     }
