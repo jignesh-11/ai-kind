@@ -79,7 +79,10 @@ export default function ProductDetailsPage() {
         <Card>
           <BlockStack gap="400">
             <InlineStack gap="300" blockAlign="center">
-              <Button onClick={() => window.location.href = "/app/products"}>← Back</Button>
+              <Button onClick={() => {
+                const appBase = window.location.pathname.split("/app")[0];
+                window.location.href = `${appBase}/app/products`;
+              }}>← Back</Button>
               <BlockStack gap="100">
                 <Text as="h1" variant="headingLg">{product.title}</Text>
                 {product.productType && (

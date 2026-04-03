@@ -244,7 +244,8 @@ export default function ProductsPage() {
                             size="slim"
                             onClick={() => {
                               const productKey = product.id.split("/").pop(); // Extract numeric ID
-                              window.location.href = `/app/products/${encodeURIComponent(productKey)}`;
+                              const appBase = window.location.pathname.split("/app")[0]; // Get app base path
+                              window.location.href = `${appBase}/app/products/${encodeURIComponent(productKey)}`;
                             }}
                           >
                             View Details
