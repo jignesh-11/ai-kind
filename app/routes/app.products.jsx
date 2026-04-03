@@ -3,10 +3,11 @@ import { useLoaderData } from "@remix-run/react";
 import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { fetchAltTextHistory } from "../alttext.server";
 import { useState } from "react";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   const response = await admin.graphql(
     `#graphql
@@ -31,14 +32,42 @@ export const loader = async ({ request }) => {
   );
 
   const responseJson = await response.json();
-  const products = responseJson.data.products.nodes.map(p => ({
-    ...p,
-    totalImages: p.images?.nodes?.length || 0,
-    imagesWithoutAlt: p.images?.nodes?.filter(img => !img.altText || img.altText.trim() === "").length || 0,
-    hasImages: (p.images?.nodes?.length || 0) > 0,
-  }));
+  const products = responseJson.data.products.nodes;
 
-  return json({ products });
+  // Fetch alt text history from our database for all products
+  const altTextHistoryMap = new Map();
+  for (const product of products) {
+    const history = await fetchAltTextHistory(session.shop, product.id);
+    if (history.length > 0) {
+      // Group by image URL with most recent alt text
+      const byUrl = new Map();
+      history.forEach(h => {
+        if (!byUrl.has(h.imageUrl) || new Date(h.createdAt) > new Date(byUrl.get(h.imageUrl).createdAt)) {
+          byUrl.set(h.imageUrl, h);
+        }
+      });
+      altTextHistoryMap.set(product.id, byUrl);
+    }
+  }
+
+  const productsWithAltText = products.map(p => {
+    const altTextMap = altTextHistoryMap.get(p.id);
+    const images = p.images?.nodes?.map(img => ({
+      ...img,
+      // Use generated alt text if available, otherwise use Shopify's
+      altText: altTextMap?.get(img.url)?.generatedAltText || img.altText,
+    })) || [];
+
+    return {
+      ...p,
+      images: { nodes: images },
+      totalImages: images.length,
+      imagesWithoutAlt: images.filter(img => !img.altText || img.altText.trim() === "").length,
+      hasImages: images.length > 0,
+    };
+  });
+
+  return json({ products: productsWithAltText });
 };
 
 export default function ProductsPage() {
