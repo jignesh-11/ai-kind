@@ -8,6 +8,7 @@ import {
   saveAltTextHistory,
   cleanupOldAltTextRecords,
   fetchAltTextHistory,
+  updateImageAltTextInShopify,
 } from "../alttext.server";
 
 export const action = async ({ request }) => {
@@ -66,6 +67,9 @@ export const action = async ({ request }) => {
               productType: product.productType || "",
             });
 
+            // Update image in Shopify
+            const updateSuccess = await updateImageAltTextInShopify(admin, image.id, altText);
+
             // Save to history
             await saveAltTextHistory(session.shop, product.id, product.title, image.url, altText);
 
@@ -74,10 +78,12 @@ export const action = async ({ request }) => {
               productTitle: product.title,
               imageUrl: image.url,
               altText,
-              success: true,
+              success: updateSuccess,
             });
 
-            totalGenerated++;
+            if (updateSuccess) {
+              totalGenerated++;
+            }
 
             // Update usage stats
             try {
@@ -159,16 +165,21 @@ export const action = async ({ request }) => {
             tags,
           });
 
+          // Update image in Shopify
+          const updateSuccess = await updateImageAltTextInShopify(admin, image.id, altText);
+
           // Save to history
           await saveAltTextHistory(session.shop, productId, productTitle, image.url, altText);
 
           results.push({
             imageUrl: image.url,
             altText,
-            success: true,
+            success: updateSuccess,
           });
 
-          generated++;
+          if (updateSuccess) {
+            generated++;
+          }
 
           // Update usage stats
           try {

@@ -163,3 +163,48 @@ export async function fetchAltTextHistory(shop, productId) {
 export function getImagesNeedingAltText(images) {
   return images.filter((img) => !img.altText || img.altText.trim() === "");
 }
+
+/**
+ * Update image alt text in Shopify
+ * @param {object} admin - Shopify admin GraphQL client
+ * @param {string} imageId - Shopify image ID
+ * @param {string} altText - Alt text to set
+ * @returns {Promise<boolean>} Success status
+ */
+export async function updateImageAltTextInShopify(admin, imageId, altText) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation updateImageAlt($imageId: ID!, $altText: String) {
+        productImageUpdate(input: { id: $imageId, altText: $altText }) {
+          image {
+            id
+            altText
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      { variables: { imageId, altText } }
+    );
+
+    const responseJson = await response.json();
+    if (responseJson.errors) {
+      console.error("GraphQL error updating image:", responseJson.errors);
+      return false;
+    }
+
+    const result = responseJson.data?.productImageUpdate;
+    if (result?.userErrors?.length > 0) {
+      console.error("Shopify errors:", result.userErrors);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error updating image alt text:", error);
+    return false;
+  }
+}
