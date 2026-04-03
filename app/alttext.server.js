@@ -175,7 +175,9 @@ export async function updateImageAltTextInShopify(admin, imageId, altText) {
   try {
     console.log("Updating image alt text:", { imageId, altText });
 
-    // Use productImageUpdate mutation - update the image alt text
+    // Try the productImageUpdate mutation - note: this may not work in all API versions
+    // The mutation `productImageUpdate` may not exist in Shopify's current GraphQL API
+    // Alt text updates may require using a different approach
     const response = await admin.graphql(
       `#graphql
       mutation updateImageAlt($imageId: ID!, $altText: String!) {
@@ -194,26 +196,26 @@ export async function updateImageAltTextInShopify(admin, imageId, altText) {
     );
 
     const responseJson = await response.json();
-    console.log("Shopify response:", JSON.stringify(responseJson, null, 2));
+    console.log("Shopify mutation response:", JSON.stringify(responseJson, null, 2));
 
     if (responseJson.errors) {
-      console.error("GraphQL error updating image:", responseJson.errors);
-      // Don't fail - alt text was still saved to our DB
-      return true;
+      console.error("GraphQL mutation doesn't exist or has incorrect syntax:", responseJson.errors[0]?.message);
+      // Mutation likely doesn't exist in this API version - this is expected
+      // Alt text is saved to our database, but Shopify update is not possible via this method
+      return false;
     }
 
     const result = responseJson.data?.productImageUpdate;
     if (result?.userErrors?.length > 0) {
-      console.error("Shopify errors:", result.userErrors);
-      // Don't fail - alt text was still saved to our DB
-      return true;
+      console.error("Shopify API errors:", result.userErrors);
+      return false;
     }
 
-    console.log("Image updated successfully:", imageId);
+    console.log("Image updated in Shopify:", imageId);
     return true;
   } catch (error) {
-    console.error("Error updating image alt text:", error);
-    // Don't fail - alt text was still saved to our DB
-    return true;
+    console.error("Error attempting Shopify image update:", error);
+    // Mutation attempt failed - alt text is saved to database but not Shopify
+    return false;
   }
 }
