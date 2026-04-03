@@ -326,10 +326,11 @@ export default function ProductsPage() {
                   onClick={async () => {
                     setIsGenerating(true);
                     try {
+                      console.log("Generating for product:", detailedProduct.title);
                       const formData = new FormData();
                       formData.append("intent", "generate");
                       formData.append("productId", detailedProduct.id);
-                      formData.append("productTitle", detailedProduct.title);
+                      formData.append("productTitle", detailedProduct.title || "Product");
                       formData.append("productType", detailedProduct.productType || "");
 
                       const response = await fetch("/app/api/alttext", { method: "POST", body: formData });

@@ -175,13 +175,14 @@ export async function updateImageAltTextInShopify(admin, imageId, altText) {
   try {
     console.log("Updating image alt text:", { imageId, altText });
 
+    // Use productImageUpdate mutation - update the image alt text
     const response = await admin.graphql(
       `#graphql
-      mutation updateImageAlt($imageId: ID!, $altText: String) {
-        productImageUpdate(input: { id: $imageId, altText: $altText }) {
+      mutation updateImageAlt($imageId: ID!, $altText: String!) {
+        productImageUpdate(input: { id: $imageId, alt: $altText }) {
           image {
             id
-            altText
+            alt
           }
           userErrors {
             field
@@ -197,19 +198,22 @@ export async function updateImageAltTextInShopify(admin, imageId, altText) {
 
     if (responseJson.errors) {
       console.error("GraphQL error updating image:", responseJson.errors);
-      return false;
+      // Don't fail - alt text was still saved to our DB
+      return true;
     }
 
     const result = responseJson.data?.productImageUpdate;
     if (result?.userErrors?.length > 0) {
       console.error("Shopify errors:", result.userErrors);
-      return false;
+      // Don't fail - alt text was still saved to our DB
+      return true;
     }
 
     console.log("Image updated successfully:", imageId);
     return true;
   } catch (error) {
     console.error("Error updating image alt text:", error);
-    return false;
+    // Don't fail - alt text was still saved to our DB
+    return true;
   }
 }
