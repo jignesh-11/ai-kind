@@ -45,6 +45,7 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [detailedProduct, setDetailedProduct] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Filter products based on search and filter type
@@ -242,11 +243,7 @@ export default function ProductsPage() {
                           )}
                           <Button
                             size="slim"
-                            onClick={() => {
-                              const productKey = product.id.split("/").pop(); // Extract numeric ID
-                              const appBase = window.location.pathname.split("/app")[0]; // Get app base path
-                              window.location.href = `${appBase}/app/products/${encodeURIComponent(productKey)}`;
-                            }}
+                            onClick={() => setDetailedProduct(product)}
                           >
                             View Details
                           </Button>
@@ -289,6 +286,117 @@ export default function ProductsPage() {
                 Alt text will be generated using AI and limited to 125 characters per image.
               </Text>
             </TextContainer>
+          </Modal.Section>
+        </Modal>
+      )}
+
+      {/* ── Product Detail Modal ── */}
+      {detailedProduct && (
+        <Modal
+          open={!!detailedProduct}
+          onClose={() => setDetailedProduct(null)}
+          title={detailedProduct.title}
+          large
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              <InlineStack gap="300" wrap>
+                <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="100">
+                    <Text variant="headingMd">{detailedProduct.totalImages}</Text>
+                    <Text variant="bodySm" tone="subdued">Total Images</Text>
+                  </BlockStack>
+                </Box>
+                <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="100">
+                    <Text variant="headingMd" tone={detailedProduct.imagesWithoutAlt > 0 ? "caution" : "success"}>
+                      {detailedProduct.imagesWithoutAlt}
+                    </Text>
+                    <Text variant="bodySm" tone="subdued">Missing Alt Text</Text>
+                  </BlockStack>
+                </Box>
+              </InlineStack>
+
+              {detailedProduct.hasImages && detailedProduct.imagesWithoutAlt > 0 && (
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={async () => {
+                    setIsGenerating(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append("intent", "generate");
+                      formData.append("productId", detailedProduct.id);
+                      formData.append("productTitle", detailedProduct.title);
+                      formData.append("productType", detailedProduct.productType || "");
+
+                      const response = await fetch("/app/api/alttext", { method: "POST", body: formData });
+                      const data = await response.json();
+
+                      if (data.generated !== undefined) {
+                        alert(`Generated alt text for ${data.generated} images`);
+                        setDetailedProduct(null);
+                        window.location.reload();
+                      } else {
+                        alert(`Error: ${data.error || "Unknown error"}`);
+                      }
+                    } catch (error) {
+                      alert(`Error: ${error.message}`);
+                    } finally {
+                      setIsGenerating(false);
+                    }
+                  }}
+                  loading={isGenerating}
+                  disabled={isGenerating}
+                >
+                  Generate Alt Text for All Images
+                </Button>
+              )}
+
+              <BlockStack gap="200">
+                <Text variant="headingMd">Images:</Text>
+                {detailedProduct.images?.nodes?.map((image, index) => {
+                  const hasAlt = image.altText && image.altText.trim() !== "";
+                  return (
+                    <Box key={image.id} padding="300" background="bg-surface-secondary" borderRadius="200">
+                      <InlineStack gap="200" blockAlign="start">
+                        <Box
+                          style={{
+                            width: "60px",
+                            height: "60px",
+                            minWidth: "60px",
+                            overflow: "hidden",
+                            borderRadius: "4px",
+                            backgroundColor: "#f0f0f0",
+                          }}
+                        >
+                          <img
+                            src={image.url}
+                            alt={image.altText || `Image ${index + 1}`}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        </Box>
+                        <BlockStack gap="100" style={{ flex: 1 }}>
+                          <InlineStack blockAlign="center" gap="200">
+                            <Text variant="bodySm" fontWeight="bold">Image {index + 1}</Text>
+                            <Badge tone={hasAlt ? "success" : "critical"}>
+                              {hasAlt ? "✓" : "✗"}
+                            </Badge>
+                          </InlineStack>
+                          {hasAlt && (
+                            <Text variant="bodySm" tone="subdued">{image.altText}</Text>
+                          )}
+                        </BlockStack>
+                      </InlineStack>
+                    </Box>
+                  );
+                })}
+              </BlockStack>
+            </BlockStack>
           </Modal.Section>
         </Modal>
       )}
