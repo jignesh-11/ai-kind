@@ -169,16 +169,19 @@ export default function ProductsPage() {
                     <Card>
                       <BlockStack gap="300">
                         {/* Product Image Thumbnail */}
-                        {product.featuredImage?.url ? (
-                          <Box
-                            style={{
-                              width: "100%",
-                              height: "150px",
-                              overflow: "hidden",
-                              borderRadius: "4px",
-                              backgroundColor: "#f0f0f0",
-                            }}
-                          >
+                        <Box
+                          style={{
+                            width: "100%",
+                            height: "150px",
+                            overflow: "hidden",
+                            borderRadius: "4px",
+                            backgroundColor: "#e8eaed",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {product.featuredImage?.url ? (
                             <img
                               src={product.featuredImage.url}
                               alt={product.title}
@@ -188,17 +191,21 @@ export default function ProductsPage() {
                                 objectFit: "cover",
                               }}
                             />
-                          </Box>
-                        ) : (
-                          <Box
-                            padding="600"
-                            background="bg-surface-secondary"
-                            borderRadius="200"
-                            style={{ textAlign: "center" }}
-                          >
-                            <Text tone="subdued">No Image</Text>
-                          </Box>
-                        )}
+                          ) : (
+                            <svg
+                              width="80"
+                              height="80"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#999"
+                              strokeWidth="1.5"
+                            >
+                              <rect x="3" y="3" width="18" height="18" rx="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="M21 15l-5-5L5 21" />
+                            </svg>
+                          )}
+                        </Box>
 
                         {/* Product Info */}
                         <BlockStack gap="200">
