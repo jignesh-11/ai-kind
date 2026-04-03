@@ -165,57 +165,44 @@ export function getImagesNeedingAltText(images) {
 }
 
 /**
- * Update image alt text in Shopify
- * @param {object} admin - Shopify admin GraphQL client
- * @param {string} imageId - Shopify image ID
+ * Update image alt text in Shopify using REST API
+ * @param {object} admin - Shopify admin client
+ * @param {string} productId - Shopify product ID in gid format
+ * @param {string} imageId - Shopify image ID in gid format
  * @param {string} altText - Alt text to set
  * @returns {Promise<boolean>} Success status
  */
-export async function updateImageAltTextInShopify(admin, imageId, altText) {
+export async function updateImageAltTextInShopify(admin, productId, imageId, altText) {
   try {
-    console.log("Updating image alt text:", { imageId, altText });
+    console.log("Updating image alt text via REST API:", { productId, imageId, altText });
 
-    // Try the productImageUpdate mutation - note: this may not work in all API versions
-    // The mutation `productImageUpdate` may not exist in Shopify's current GraphQL API
-    // Alt text updates may require using a different approach
-    const response = await admin.graphql(
-      `#graphql
-      mutation updateImageAlt($imageId: ID!, $altText: String!) {
-        productImageUpdate(input: { id: $imageId, alt: $altText }) {
-          image {
-            id
-            alt
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }`,
-      { variables: { imageId, altText } }
-    );
+    // Extract numeric IDs from gid format: gid://shopify/Product/12345 and gid://shopify/ProductImage/67890
+    const productIdMatch = productId.match(/Product\/(\d+)/);
+    const imageIdMatch = imageId.match(/ProductImage\/(\d+)/);
 
-    const responseJson = await response.json();
-    console.log("Shopify mutation response:", JSON.stringify(responseJson, null, 2));
-
-    if (responseJson.errors) {
-      console.error("GraphQL mutation doesn't exist or has incorrect syntax:", responseJson.errors[0]?.message);
-      // Mutation likely doesn't exist in this API version - this is expected
-      // Alt text is saved to our database, but Shopify update is not possible via this method
+    if (!productIdMatch || !imageIdMatch) {
+      console.error("Invalid ID format:", { productId, imageId });
       return false;
     }
 
-    const result = responseJson.data?.productImageUpdate;
-    if (result?.userErrors?.length > 0) {
-      console.error("Shopify API errors:", result.userErrors);
-      return false;
-    }
+    const restProductId = productIdMatch[1];
+    const restImageId = imageIdMatch[1];
 
-    console.log("Image updated in Shopify:", imageId);
+    // Use REST API to update the product image alt text
+    const response = await admin.rest.put({
+      path: `/admin/api/2025-01/products/${restProductId}/images/${restImageId}.json`,
+      body: {
+        image: {
+          alt: altText,
+        },
+      },
+    });
+
+    console.log("Image updated via REST API:", { restProductId, restImageId });
     return true;
   } catch (error) {
-    console.error("Error attempting Shopify image update:", error);
-    // Mutation attempt failed - alt text is saved to database but not Shopify
+    console.error("Error updating image alt text:", error.message);
+    // Don't fail - alt text is saved to our DB
     return false;
   }
 }

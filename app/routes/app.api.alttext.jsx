@@ -68,7 +68,7 @@ export const action = async ({ request }) => {
             });
 
             // Update image in Shopify
-            const updateSuccess = await updateImageAltTextInShopify(admin, image.id, altText);
+            const updateSuccess = await updateImageAltTextInShopify(admin, product.id, image.id, altText);
 
             // Save to history
             await saveAltTextHistory(session.shop, product.id, product.title, image.url, altText);
@@ -172,7 +172,7 @@ export const action = async ({ request }) => {
           });
 
           // Update image in Shopify
-          const updateSuccess = await updateImageAltTextInShopify(admin, image.id, altText);
+          const updateSuccess = await updateImageAltTextInShopify(admin, productId, image.id, altText);
 
           // Save to history
           await saveAltTextHistory(session.shop, productId, productTitle, image.url, altText);
