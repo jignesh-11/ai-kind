@@ -6,7 +6,8 @@ import { useState } from "react";
 
 export const loader = async ({ request, params }) => {
   const { admin } = await authenticate.admin(request);
-  const productId = params.id;
+  // Reconstruct the full Shopify product ID
+  const productId = `gid://shopify/Product/${params.id}`;
 
   const response = await admin.graphql(
     `#graphql

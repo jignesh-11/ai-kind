@@ -243,7 +243,10 @@ export default function ProductsPage() {
                           )}
                           <Button
                             size="slim"
-                            onClick={() => navigate(`/app/products/${product.id}`)}
+                            onClick={() => {
+                              const productKey = product.id.split("/").pop(); // Extract numeric ID
+                              navigate(`/app/products/${encodeURIComponent(productKey)}`);
+                            }}
                           >
                             View Details
                           </Button>
