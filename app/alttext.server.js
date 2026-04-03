@@ -166,13 +166,15 @@ export function getImagesNeedingAltText(images) {
 
 /**
  * Update image alt text in Shopify using REST API
- * @param {object} admin - Shopify admin client
+ * @param {object} admin - Shopify admin client (used for GraphQL to get session info)
  * @param {string} productId - Shopify product ID in gid format
  * @param {string} imageId - Shopify image ID in gid format
  * @param {string} altText - Alt text to set
+ * @param {string} shop - Shop domain (e.g., store.myshopify.com)
+ * @param {string} accessToken - Shopify API access token
  * @returns {Promise<boolean>} Success status
  */
-export async function updateImageAltTextInShopify(admin, productId, imageId, altText) {
+export async function updateImageAltTextInShopify(admin, productId, imageId, altText, shop, accessToken) {
   try {
     console.log("Updating image alt text via REST API:", { productId, imageId, altText });
 
@@ -188,17 +190,31 @@ export async function updateImageAltTextInShopify(admin, productId, imageId, alt
     const restProductId = productIdMatch[1];
     const restImageId = imageIdMatch[1];
 
-    // Use REST API to update the product image alt text
-    const response = await admin.rest.put({
-      path: `/admin/api/2025-01/products/${restProductId}/images/${restImageId}.json`,
-      body: {
-        image: {
-          alt: altText,
+    // Make REST API request using fetch
+    const response = await fetch(
+      `https://${shop}/admin/api/2025-01/products/${restProductId}/images/${restImageId}.json`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
         },
-      },
-    });
+        body: JSON.stringify({
+          image: {
+            alt: altText,
+          },
+        }),
+      }
+    );
 
-    console.log("Image updated via REST API:", { restProductId, restImageId });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`REST API error ${response.status}:`, errorText);
+      return false;
+    }
+
+    const result = await response.json();
+    console.log("Image updated via REST API:", { restProductId, restImageId, alt: result.image?.alt });
     return true;
   } catch (error) {
     console.error("Error updating image alt text:", error.message);
