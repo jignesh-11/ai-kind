@@ -46,7 +46,6 @@ export default function ProductsPage() {
   const [filterType, setFilterType] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const navigate = useNavigate();
 
   // Filter products based on search and filter type
   const filteredProducts = products.filter(product => {

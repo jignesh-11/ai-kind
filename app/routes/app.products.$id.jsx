@@ -41,7 +41,6 @@ export const loader = async ({ request, params }) => {
 
 export default function ProductDetailsPage() {
   const { product } = useLoaderData();
-  const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
