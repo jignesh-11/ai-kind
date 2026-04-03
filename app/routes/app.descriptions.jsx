@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useActionData, useNavigation, useSubmit, useLoaderData } from "@remix-run/react";
+import { useActionData, useNavigation, useSubmit, useLoaderData, useNavigate } from "@remix-run/react";
 import {
   Page, Layout, Text, Card, Button, BlockStack, Box, TextField,
   Select, Banner, InlineStack, IndexTable, Modal, Thumbnail,
@@ -24,11 +24,14 @@ function sanitizeHtml(html) {
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const perPage = 20;
 
   const response = await admin.graphql(
     `#graphql
     query getProducts {
-      products(first: 50, sortKey: TITLE) {
+      products(first: 250, sortKey: TITLE) {
         nodes {
           id
           title
@@ -45,6 +48,13 @@ export const loader = async ({ request }) => {
     }`
   );
   const responseJson = await response.json();
+  const allProducts = responseJson.data.products.nodes;
+
+  // Paginate products
+  const totalPages = Math.ceil(allProducts.length / perPage);
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const startIdx = (currentPage - 1) * perPage;
+  const paginatedProducts = allProducts.slice(startIdx, startIdx + perPage);
 
   const usage = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
 
@@ -55,9 +65,15 @@ export const loader = async ({ request }) => {
   } catch (_) {}
 
   return json({
-    products: responseJson.data.products.nodes,
+    products: paginatedProducts,
     credits: usage?.credits || 0,
     settings: settings || { defaultTone: "professional", defaultLang: "English", defaultLen: "short" },
+    pagination: {
+      currentPage,
+      totalPages,
+      totalProducts: allProducts.length,
+      perPage,
+    },
   });
 };
 
@@ -336,6 +352,7 @@ export default function Descriptions() {
   const actionData = useActionData();
   const loaderData = useLoaderData();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const submit = useSubmit();
   const shopify = useAppBridge();
 
@@ -850,7 +867,17 @@ export default function Descriptions() {
                         position={index}
                       >
                         <IndexTable.Cell>
-                          <Thumbnail source={product.featuredImage?.url || ""} alt={product.featuredImage?.altText || product.title} size="small" />
+                          {product.featuredImage?.url ? (
+                            <Thumbnail source={product.featuredImage.url} alt={product.featuredImage?.altText || product.title} size="small" />
+                          ) : (
+                            <Box style={{ width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#e8eaed", borderRadius: "4px" }}>
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <path d="M21 15l-5-5L5 21" />
+                              </svg>
+                            </Box>
+                          )}
                         </IndexTable.Cell>
                         <IndexTable.Cell>
                           <Text fontWeight="bold" as="span">{product.title}</Text>
@@ -871,6 +898,27 @@ export default function Descriptions() {
                       </IndexTable.Row>
                     ))}
                   </IndexTable>
+
+                  {/* Pagination */}
+                  {loaderData?.pagination && (
+                    <InlineStack gap="400" align="center" blockAlign="center">
+                      <Button
+                        onClick={() => navigate(`?page=${loaderData.pagination.currentPage - 1}`)}
+                        disabled={loaderData.pagination.currentPage <= 1}
+                      >
+                        ← Previous
+                      </Button>
+                      <Text variant="bodySm" tone="subdued">
+                        Page {loaderData.pagination.currentPage} of {loaderData.pagination.totalPages} ({loaderData.pagination.totalProducts} products)
+                      </Text>
+                      <Button
+                        onClick={() => navigate(`?page=${loaderData.pagination.currentPage + 1}`)}
+                        disabled={loaderData.pagination.currentPage >= loaderData.pagination.totalPages}
+                      >
+                        Next →
+                      </Button>
+                    </InlineStack>
+                  )}
                 </BlockStack>
               </Card>
             </Layout.Section>

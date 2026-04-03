@@ -154,11 +154,14 @@ export const action = async ({ request }) => {
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const perPage = 20;
 
   const response = await admin.graphql(
     `#graphql
     query getProductsForAudit {
-      products(first: 50, sortKey: TITLE) {
+      products(first: 250, sortKey: TITLE) {
         nodes {
           id title productType vendor
           descriptionHtml
@@ -169,12 +172,18 @@ export const loader = async ({ request }) => {
     }`
   );
   const responseJson = await response.json();
-  const products = responseJson.data.products.nodes;
+  const allProducts = responseJson.data.products.nodes;
 
-  const audited = products.map(p => ({
+  const audited = allProducts.map(p => ({
     ...p,
     audit: auditProduct(p),
   }));
+
+  // Paginate products
+  const totalPages = Math.ceil(audited.length / perPage);
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const startIdx = (currentPage - 1) * perPage;
+  const paginatedAudited = audited.slice(startIdx, startIdx + perPage);
 
   const totalScore  = audited.length > 0 ? Math.round(audited.reduce((s, p) => s + p.audit.score, 0) / audited.length) : 0;
   const perfect     = audited.filter(p => p.audit.issues.length === 0).length;
@@ -184,11 +193,25 @@ export const loader = async ({ request }) => {
 
   const recommendedFixes = computeRecommendedFixes(audited);
 
-  return json({ products: audited, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes });
+  return json({
+    products: paginatedAudited,
+    totalScore,
+    perfect,
+    hasIssues,
+    missingDesc,
+    missingSeo,
+    recommendedFixes,
+    pagination: {
+      currentPage,
+      totalPages,
+      totalProducts: audited.length,
+      perPage,
+    },
+  });
 };
 
 export default function SeoAudit() {
-  const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes } = useLoaderData();
+  const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes, pagination } = useLoaderData();
   const navigate = useNavigate();
   const submit = useSubmit();
 
@@ -375,6 +398,27 @@ export default function SeoAudit() {
                   </IndexTable.Row>
                 ))}
             </IndexTable>
+
+            {/* Pagination */}
+            {pagination && (
+              <InlineStack gap="400" align="center" blockAlign="center">
+                <Button
+                  onClick={() => navigate(`?page=${pagination.currentPage - 1}`)}
+                  disabled={pagination.currentPage <= 1}
+                >
+                  ← Previous
+                </Button>
+                <Text variant="bodySm" tone="subdued">
+                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalProducts} products)
+                </Text>
+                <Button
+                  onClick={() => navigate(`?page=${pagination.currentPage + 1}`)}
+                  disabled={pagination.currentPage >= pagination.totalPages}
+                >
+                  Next →
+                </Button>
+              </InlineStack>
+            )}
           </BlockStack>
         </Card>
       </BlockStack>

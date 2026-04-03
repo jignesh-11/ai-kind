@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -7,11 +7,14 @@ import { useState } from "react";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const perPage = 20;
 
   const response = await admin.graphql(
     `#graphql
     query getProductsWithImages {
-      products(first: 50, sortKey: TITLE) {
+      products(first: 250, sortKey: TITLE) {
         nodes {
           id
           title
@@ -31,10 +34,10 @@ export const loader = async ({ request }) => {
   );
 
   const responseJson = await response.json();
-  const products = responseJson.data.products.nodes;
+  const allProducts = responseJson.data.products.nodes;
 
   // Only use Shopify's actual alt text as source of truth
-  const productsWithAltText = products.map(p => {
+  const productsWithAltText = allProducts.map(p => {
     const images = p.images?.nodes?.map(img => ({
       ...img,
       // Use ONLY Shopify's alt text - this is the source of truth
@@ -50,12 +53,27 @@ export const loader = async ({ request }) => {
     };
   });
 
-  return json({ products: productsWithAltText });
+  // Paginate products
+  const totalPages = Math.ceil(productsWithAltText.length / perPage);
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const startIdx = (currentPage - 1) * perPage;
+  const paginatedProducts = productsWithAltText.slice(startIdx, startIdx + perPage);
+
+  return json({
+    products: paginatedProducts,
+    pagination: {
+      currentPage,
+      totalPages,
+      totalProducts: productsWithAltText.length,
+      perPage,
+    },
+  });
 };
 
 export default function ProductsPage() {
-  const { products } = useLoaderData();
+  const { products, pagination } = useLoaderData();
   const shopify = useAppBridge();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -271,6 +289,27 @@ export default function ProductsPage() {
                 );
               })}
             </Grid>
+          )}
+
+          {/* Pagination */}
+          {pagination && (
+            <InlineStack gap="400" align="center" blockAlign="center">
+              <Button
+                onClick={() => navigate(`?page=${pagination.currentPage - 1}`)}
+                disabled={pagination.currentPage <= 1}
+              >
+                ← Previous
+              </Button>
+              <Text variant="bodySm" tone="subdued">
+                Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalProducts} products)
+              </Text>
+              <Button
+                onClick={() => navigate(`?page=${pagination.currentPage + 1}`)}
+                disabled={pagination.currentPage >= pagination.totalPages}
+              >
+                Next →
+              </Button>
+            </InlineStack>
           )}
         </BlockStack>
       </BlockStack>
