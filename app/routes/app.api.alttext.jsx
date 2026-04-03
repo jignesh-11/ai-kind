@@ -15,7 +15,113 @@ export const action = async ({ request }) => {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
-  // ── Generate alt text for product images ──────────────────────────────
+  // ── Batch generate alt text for all products ──────────────────────────
+  if (intent === "generate" && !formData.get("productId")) {
+    try {
+      // Fetch all products
+      const productsResponse = await admin.graphql(
+        `#graphql
+        query getAllProducts {
+          products(first: 50, sortKey: TITLE) {
+            nodes {
+              id title productType
+              images(first: 25) {
+                nodes {
+                  id url altText
+                }
+              }
+            }
+          }
+        }`
+      );
+      const productsJson = await productsResponse.json();
+      if (productsJson.errors) {
+        return json({ error: "Failed to fetch products" }, { status: 500 });
+      }
+
+      const products = productsJson.data.products.nodes;
+      let totalGenerated = 0;
+      const results = [];
+
+      // Process each product
+      for (const product of products) {
+        if (!product.images || product.images.nodes.length === 0) {
+          continue; // Skip products with no images
+        }
+
+        const imagesToProcess = product.images.nodes.filter((img) => !img.altText || img.altText.trim() === "");
+
+        for (const image of imagesToProcess) {
+          try {
+            // Check usage
+            try {
+              await checkAndChargeUsage(admin, session.shop, 1);
+            } catch (billErr) {
+              console.log("Billing check failed, continuing anyway:", billErr.message);
+            }
+
+            // Generate alt text
+            const altText = await generateAltTextForImage(image.url, {
+              title: product.title,
+              productType: product.productType || "",
+            });
+
+            // Save to history
+            await saveAltTextHistory(session.shop, product.id, product.title, image.url, altText);
+
+            results.push({
+              productId: product.id,
+              productTitle: product.title,
+              imageUrl: image.url,
+              altText,
+              success: true,
+            });
+
+            totalGenerated++;
+
+            // Update usage stats
+            try {
+              await prisma.usageStat.upsert({
+                where: { shop: session.shop },
+                update: { altTextGenerated: { increment: 1 } },
+                create: { shop: session.shop, altTextGenerated: 1 },
+              });
+            } catch (err) {
+              console.error("Stats update failed:", err);
+            }
+
+            // Clean up old records
+            await cleanupOldAltTextRecords(session.shop, product.id);
+
+            // Rate limiting: 3.5s between images
+            await new Promise((resolve) => setTimeout(resolve, 3500));
+          } catch (error) {
+            console.error(`Error processing image ${image.url}:`, error);
+            results.push({
+              productId: product.id,
+              productTitle: product.title,
+              imageUrl: image.url,
+              error: error.message,
+              success: false,
+            });
+          }
+        }
+      }
+
+      return json({
+        success: true,
+        generatedCount: totalGenerated,
+        totalCount: results.length,
+        message: `Generated alt text for ${totalGenerated} images across all products`,
+        results: results.slice(0, 10), // Return first 10 for UI feedback
+      });
+    } catch (error) {
+      console.error("Batch alt text generation error:", error);
+      return json({ error: `Batch generation failed: ${error.message}` }, { status: 500 });
+    }
+  }
+
+  // ── Generate alt text for specific product images ──────────────────────
   if (intent === "generate") {
     const productId = formData.get("productId");
     const productTitle = formData.get("productTitle");
