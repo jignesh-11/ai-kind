@@ -1,10 +1,10 @@
 import {
   Page, Layout, Card, Text, BlockStack, InlineStack, Badge,
-  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon
+  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, ButtonGroup
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { generateAuditPDF, logAuditExport } from "../pdf.server";
@@ -213,15 +213,39 @@ export const loader = async ({ request }) => {
 export default function SeoAudit() {
   const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes, pagination } = useLoaderData();
   const navigate = useNavigate();
-  const submit = useSubmit();
 
   const scoreColor = totalScore >= 80 ? "success" : totalScore >= 50 ? "warning" : "critical";
   const scoreTone  = totalScore >= 80 ? "success" : totalScore >= 50 ? "caution" : "critical";
 
-  const handleDownloadPDF = () => {
-    const formData = new FormData();
-    formData.append("intent", "download_pdf");
-    submit(formData, { method: "POST" });
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const formData = new FormData();
+      formData.append("intent", "download_pdf");
+      const response = await fetch(window.location.href, {
+        method: "POST",
+        body: formData,
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `audit-${new Date().toISOString().split("T")[0]}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        console.error("PDF download failed:", response.status);
+      }
+    } catch (error) {
+      console.error("PDF download error:", error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleGenerateAltText = () => {
@@ -231,9 +255,9 @@ export default function SeoAudit() {
   return (
     <Page>
       <TitleBar title="SEO Health Audit">
-        <button onClick={handleDownloadPDF} style={{ padding: "8px 16px", borderRadius: "4px", backgroundColor: "#0066ff", color: "white", border: "none", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}>
-          ↓ Download PDF
-        </button>
+        <Button onClick={handleDownloadPDF} loading={isDownloading} disabled={isDownloading}>
+          Download PDF
+        </Button>
       </TitleBar>
       <BlockStack gap="600">
 
