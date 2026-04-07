@@ -1,6 +1,6 @@
 import {
   Page, Layout, Card, Text, BlockStack, InlineStack, Badge,
-  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, ButtonGroup
+  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, ButtonGroup, Modal
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { json } from "@remix-run/node";
@@ -218,6 +218,7 @@ export default function SeoAudit() {
   const scoreTone  = totalScore >= 80 ? "success" : totalScore >= 50 ? "caution" : "critical";
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedProductIssues, setSelectedProductIssues] = useState(null);
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
@@ -404,13 +405,24 @@ export default function SeoAudit() {
                       {product.audit.issues.length === 0 ? (
                         <Badge tone="success">All good</Badge>
                       ) : (
-                        <BlockStack gap="100">
-                          {product.audit.issues.map((issue, i) => (
-                            <Badge key={i} tone={issue.severity === "high" ? "critical" : issue.severity === "medium" ? "warning" : "info"}>
-                              {issue.msg}
-                            </Badge>
-                          ))}
-                        </BlockStack>
+                        <button
+                          onClick={() => setSelectedProductIssues(product)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #e5e7eb",
+                            backgroundColor: "#f9fafb",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          <span style={{ color: "#dc2626" }}>●</span>
+                          <span>{product.audit.issues.length} issue{product.audit.issues.length !== 1 ? "s" : ""}</span>
+                        </button>
                       )}
                     </IndexTable.Cell>
                     <IndexTable.Cell>
@@ -446,6 +458,103 @@ export default function SeoAudit() {
           </BlockStack>
         </Card>
       </BlockStack>
+
+      {/* Issues Modal */}
+      {selectedProductIssues && (
+        <Modal
+          open={!!selectedProductIssues}
+          onClose={() => setSelectedProductIssues(null)}
+          title={`Issues - ${selectedProductIssues.title}`}
+          primaryAction={{
+            content: "Close",
+            onAction: () => setSelectedProductIssues(null),
+          }}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              {selectedProductIssues.audit.issues.length === 0 ? (
+                <Text>No issues found!</Text>
+              ) : (
+                <BlockStack gap="300">
+                  {selectedProductIssues.audit.issues.map((issue, i) => (
+                    <Box
+                      key={i}
+                      padding="300"
+                      borderRadius="200"
+                      background={
+                        issue.severity === "high"
+                          ? "bg-surface-critical-subdued"
+                          : issue.severity === "medium"
+                          ? "bg-surface-caution-subdued"
+                          : "bg-surface-info-subdued"
+                      }
+                    >
+                      <BlockStack gap="100">
+                        <InlineStack blockAlign="center" gap="200">
+                          <Badge
+                            tone={
+                              issue.severity === "high"
+                                ? "critical"
+                                : issue.severity === "medium"
+                                ? "warning"
+                                : "info"
+                            }
+                          >
+                            {issue.severity.toUpperCase()}
+                          </Badge>
+                          <Text fontWeight="bold">{issue.msg}</Text>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              )}
+
+              {/* Quick Actions */}
+              <Box paddingBlockStart="300" borderBlockStart="1px solid #e5e7eb">
+                <BlockStack gap="200">
+                  <Text variant="bodySm" tone="subdued">Quick actions:</Text>
+                  <InlineStack gap="200">
+                    {selectedProductIssues.audit.issues.some((i) => i.msg.includes("SEO") || i.msg.includes("title") || i.msg.includes("description")) && (
+                      <Button
+                        size="slim"
+                        onClick={() => {
+                          navigate(`/app/seo?productId=${selectedProductIssues.id}`);
+                          setSelectedProductIssues(null);
+                        }}
+                      >
+                        Fix SEO
+                      </Button>
+                    )}
+                    {selectedProductIssues.audit.issues.some((i) => i.msg.includes("description") && i.msg.includes("brief")) && (
+                      <Button
+                        size="slim"
+                        onClick={() => {
+                          navigate(`/app/descriptions?productId=${selectedProductIssues.id}`);
+                          setSelectedProductIssues(null);
+                        }}
+                      >
+                        Fix Description
+                      </Button>
+                    )}
+                    {selectedProductIssues.audit.issues.some((i) => i.msg.includes("alt text") || i.msg.includes("image")) && (
+                      <Button
+                        size="slim"
+                        onClick={() => {
+                          navigate(`/app/products?productId=${selectedProductIssues.id}`);
+                          setSelectedProductIssues(null);
+                        }}
+                      >
+                        Fix Images
+                      </Button>
+                    )}
+                  </InlineStack>
+                </BlockStack>
+              </Box>
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+      )}
     </Page>
   );
 }
