@@ -23,3 +23,23 @@ database.sqlite
 # Ignore shopify files created during app dev
 .shopify/*
 .shopify.lock
+
+# User requested ignores
+*.toml
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite-journal
+
+# OS and Editor
+.idea
+.vscode
+*.swp
+*.swo
+Thumbs.db
+
+# Build and Temp
+dist/
+tmp/
+coverage/
