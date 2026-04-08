@@ -25,7 +25,7 @@ export default function SupportWidget({ defaultOpen = false }) {
 
         <div className="support-widget-panel__body">
           <p className="support-widget-panel__greeting">
-            Hi there! 👋 We're here to help you get the most out of <strong>CopySpark</strong>.
+            Hi there! 👋 We're here to help you get the most out of <strong>CopySpark AI</strong>.
           </p>
 
           <div className="support-widget-panel__links">
@@ -58,7 +58,7 @@ export default function SupportWidget({ defaultOpen = false }) {
         </div>
 
         <div className="support-widget-panel__footer">
-          <span>CopySpark v1.0 · We typically reply within 24h</span>
+          <span>CopySpark AI v1.0 · We typically reply within 24h</span>
         </div>
       </div>
 

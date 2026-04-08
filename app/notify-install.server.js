@@ -13,13 +13,13 @@ export async function sendInstallNotification(shop) {
 
     try {
         const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "CopySpark <onboarding@resend.dev>",
+            from: process.env.RESEND_FROM_EMAIL || "CopySpark AI <onboarding@resend.dev>",
             to: [to],
             subject: `🎉 New Install: ${shop}`,
             html: `
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb;">
           <h2 style="margin: 0 0 8px; color: #1a1a2e; font-size: 22px;">🎉 New App Installation!</h2>
-          <p style="color: #6b7280; font-size: 14px; margin: 0 0 24px;">A new merchant just installed <strong>CopySpark</strong>.</p>
+          <p style="color: #6b7280; font-size: 14px; margin: 0 0 24px;">A new merchant just installed <strong>CopySpark AI</strong>.</p>
 
           <div style="background: #f7f8fc; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -39,7 +39,7 @@ export async function sendInstallNotification(shop) {
           </div>
 
           <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
-            CopySpark Install Notifications
+            CopySpark AI Install Notifications
           </p>
         </div>
       `,

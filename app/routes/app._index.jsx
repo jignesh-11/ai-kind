@@ -50,7 +50,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <Box padding="400" background="bg-surface-active" borderRadius="300">
           <BlockStack gap="200">
-            <Text as="h1" variant="headingLg">Welcome to CopySpark</Text>
+            <Text as="h1" variant="headingLg">Welcome to CopySpark AI</Text>
             <Text as="p" variant="bodyMd">
               Supercharge your store with AI-powered product descriptions and SEO optimization.
             </Text>
