@@ -53,6 +53,7 @@ export const loader = async ({ request }) => {
 
   return json({
     apiKey:   process.env.SHOPIFY_API_KEY || "",
+    allProducts, // Return all products for searching
     products: paginatedProducts,
     credits:  usage?.credits || 0,
     pagination: {
@@ -525,11 +526,15 @@ export default function SeoGenerator() {
                     />
                   </BlockStack>
                   {(() => {
-                    const filtered = loaderData?.products?.filter(p =>
-                      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                      (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
-                    ) || [];
+                    const paginatedProducts = loaderData?.products || [];
+                    const allProducts = loaderData?.allProducts || paginatedProducts;
+                    const filtered = searchTerm
+                      ? allProducts.filter(p =>
+                          p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
+                        )
+                      : paginatedProducts;
                     return (
                     <IndexTable
                       resourceName={{ singular: "product", plural: "products" }}
