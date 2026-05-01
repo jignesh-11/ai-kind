@@ -65,6 +65,7 @@ export const loader = async ({ request }) => {
   } catch (_) {}
 
   return json({
+    allProducts, // Return all products for searching
     products: paginatedProducts,
     credits: usage?.credits || 0,
     settings: settings || { defaultTone: "professional", defaultLang: "English", defaultLen: "short" },
@@ -356,7 +357,8 @@ export default function Descriptions() {
   const submit = useSubmit();
   const shopify = useAppBridge();
 
-  const fetchedProducts = loaderData?.products || [];
+  const paginatedProducts = loaderData?.products || [];
+  const fetchedProducts = loaderData?.allProducts || paginatedProducts;
   const settings = loaderData?.settings || {};
 
   // ── single-product state ──────────────────────────────────────────────────
@@ -871,11 +873,13 @@ export default function Descriptions() {
                     onClearButtonClick={() => setSearchTerm("")}
                   />
                   {(() => {
-                    const filtered = fetchedProducts.filter(p =>
-                      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                      (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
-                    );
+                    const filtered = searchTerm 
+                      ? fetchedProducts.filter(p =>
+                          p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
+                        )
+                      : paginatedProducts;
                     return (
                   <IndexTable
                     resourceName={{ singular: "product", plural: "products" }}
