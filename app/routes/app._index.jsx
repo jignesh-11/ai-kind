@@ -4,10 +4,10 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { SearchIcon, MagicIcon, CheckCircleIcon, StarIcon } from "@shopify/polaris-icons";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
-import { authenticate, FREE_PLAN } from "../shopify.server";
+import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { initializeFreeCredits } from "../init-credits.server";
-import { PLAN_CONFIG } from "../billing.server";
+import { FREE_PLAN, PLAN_CONFIG } from "../constants";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);

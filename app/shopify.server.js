@@ -7,10 +7,7 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
-
-export const FREE_PLAN = "Free Forever";
-export const PRO_PLAN = "Pro (Growth)";
-export const ELITE_PLAN = "Elite (Scale)";
+import { FREE_PLAN, PRO_PLAN, ELITE_PLAN } from "./constants";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,

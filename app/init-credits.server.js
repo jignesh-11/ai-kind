@@ -1,7 +1,6 @@
 import prisma from "./db.server";
 import { sendInstallNotification } from "./notify-install.server";
-import { PLAN_CONFIG } from "./billing.server";
-import { FREE_PLAN } from "./shopify.server";
+import { FREE_PLAN, PLAN_CONFIG } from "./constants";
 
 /**
  * Initialize free credits for a new shop installation.

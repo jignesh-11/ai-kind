@@ -68,7 +68,10 @@ export default defineConfig({
   build: {
     assetsInlineLimit: 0,
   },
+  ssr: {
+    noExternal: ["pdfkit"],
+  },
   optimizeDeps: {
-    include: ["@shopify/app-bridge-react", "@shopify/polaris"],
+    include: ["@shopify/app-bridge-react", "@shopify/polaris", "pdfkit"],
   },
 });

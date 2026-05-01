@@ -1,20 +1,5 @@
 import prisma from "./db.server";
-import { FREE_PLAN, PRO_PLAN, ELITE_PLAN } from "./shopify.server";
-
-export const PLAN_CONFIG = {
-    [FREE_PLAN]: {
-        credits: 20, // Increased for launch
-        features: ["descriptions", "seo"],
-    },
-    [PRO_PLAN]: {
-        credits: 500,
-        features: ["descriptions", "seo", "alt-text", "audit"],
-    },
-    [ELITE_PLAN]: {
-        credits: 999999, // Unlimited
-        features: ["descriptions", "seo", "alt-text", "audit", "bulk"],
-    },
-};
+import { FREE_PLAN, PLAN_CONFIG } from "./constants";
 
 export const checkAndChargeUsage = async (admin, shop, count = 1) => {
     // 1. Get or Init Usage Stats
