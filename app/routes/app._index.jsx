@@ -1,7 +1,28 @@
 import { useEffect } from "react";
-import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, InlineGrid, Badge, ProgressBar, Icon, Divider } from "@shopify/polaris";
+import { 
+  Page, 
+  Layout, 
+  Card, 
+  Text, 
+  BlockStack, 
+  InlineStack, 
+  Button, 
+  Box, 
+  Grid, 
+  Badge, 
+  ProgressBar, 
+  Icon, 
+  Divider,
+  Banner
+} from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
-import { SearchIcon, MagicIcon, CheckCircleIcon, StarIcon, ImageIcon, ArrowRightIcon } from "@shopify/polaris-icons";
+import { 
+  SearchIcon, 
+  MagicIcon, 
+  CheckCircleIcon, 
+  StarIcon, 
+  ImageIcon 
+} from "@shopify/polaris-icons";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
@@ -23,54 +44,25 @@ export const loader = async ({ request }) => {
   });
 };
 
-function StatBox({ label, value, icon: IconSource, tone }) {
+function ToolCard({ title, description, icon, onAction, isPro }) {
   return (
-    <Box padding="400" background="bg-surface-secondary" borderRadius="300" style={{ flex: 1 }}>
-      <BlockStack gap="200">
+    <Card>
+      <BlockStack gap="400">
         <InlineStack align="space-between" blockAlign="center">
-          <Text variant="bodySm" tone="subdued">{label}</Text>
-          <Icon source={IconSource} tone={tone} />
+          <InlineStack gap="300">
+            <Icon source={icon} tone="base" />
+            <Text variant="headingMd" as="h3">{title}</Text>
+          </InlineStack>
+          {isPro && <Badge tone="warning">PRO</Badge>}
         </InlineStack>
-        <Text variant="headingLg" as="p">{value}</Text>
+        <div style={{ minHeight: '40px' }}>
+          <Text variant="bodyMd" tone="subdued">{description}</Text>
+        </div>
+        <InlineStack align="end">
+          <Button onClick={onAction} variant="primary" size="slim">Get Started</Button>
+        </InlineStack>
       </BlockStack>
-    </Box>
-  );
-}
-
-function FeatureCard({ title, description, icon: IconSource, iconBg, onAction, isPro }) {
-  return (
-    <Box 
-        as="div" 
-        onClick={onAction}
-        style={{ cursor: 'pointer', height: '100%' }}
-    >
-        <Card height="100%">
-            <BlockStack gap="400">
-                <InlineStack align="space-between" blockAlign="center">
-                    <Box 
-                        background={iconBg} 
-                        padding="200" 
-                        borderRadius="300"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                        <Icon source={IconSource} width="24" />
-                    </Box>
-                    {isPro && <Badge tone="warning">PRO</Badge>}
-                </InlineStack>
-                
-                <BlockStack gap="100">
-                    <Text variant="headingMd" as="h3">{title}</Text>
-                    <Text variant="bodySm" tone="subdued">{description}</Text>
-                </BlockStack>
-
-                <InlineStack align="end">
-                    <Button variant="tertiary" icon={ArrowRightIcon} onClick={onAction}>
-                        Explore
-                    </Button>
-                </InlineStack>
-            </BlockStack>
-        </Card>
-    </Box>
+    </Card>
   );
 }
 
@@ -98,116 +90,108 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <Page>
-      <TitleBar title="CopySpark Dashboard" />
+    <Page title="Dashboard">
+      <TitleBar title="CopySpark AI" />
       <BlockStack gap="600">
         
-        {/* Modern Hero / Welcome */}
-        <Box 
-            padding="600" 
-            background="bg-surface-active" 
-            borderRadius="400" 
-            style={{ 
-                border: '1px solid var(--p-color-border-subdued)',
-                backgroundImage: 'linear-gradient(to right, var(--p-color-bg-surface-active), var(--p-color-bg-surface-info-subdued))'
+        {isFree && (
+          <Banner
+            title="Early Bird Offer: 50% Off Pro Plan"
+            tone="info"
+            action={{
+              content: 'View Plans',
+              onAction: () => navigate("/app/plans"),
             }}
-        >
-          <InlineStack align="space-between" blockAlign="center" gap="400">
-            <BlockStack gap="200">
-              <Text as="h1" variant="headingXl">Supercharge your SEO</Text>
-              <Text as="p" variant="bodyLg" tone="subdued">
-                Generate high-converting content and optimize your store visibility with Gemini AI.
-              </Text>
-            </BlockStack>
-            <Button size="large" onClick={() => navigate("/app/plans")} variant="primary" icon={StarIcon}>
-              Upgrade to Pro
-            </Button>
-          </InlineStack>
-        </Box>
+          >
+            <p>Upgrade now to unlock Image Alt Text generation and SEO Health Audit reports.</p>
+          </Banner>
+        )}
 
         <Layout>
-          {/* Main Controls */}
+          {/* Optimization Tools */}
           <Layout.Section>
             <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">AI Command Center</Text>
-                <InlineGrid columns={{ xs: 1, sm: 2, md: 2 }} gap="400">
-                    <FeatureCard 
-                        title="Descriptions"
-                        description="Craft compelling product stories that sell."
-                        icon={MagicIcon}
-                        iconBg="bg-surface-success-subdued"
-                        onAction={() => navigate("/app/descriptions")}
-                    />
-                    <FeatureCard 
-                        title="SEO Meta Tags"
-                        description="Auto-generate titles and meta for search."
-                        icon={SearchIcon}
-                        iconBg="bg-surface-info-subdued"
-                        onAction={() => navigate("/app/seo")}
-                    />
-                    <FeatureCard 
-                        title="SEO Audit"
-                        description="Scan your entire store for health issues."
-                        icon={CheckCircleIcon}
-                        iconBg="bg-surface-caution-subdued"
-                        onAction={() => navigate("/app/audit")}
-                        isPro={isFree}
-                    />
-                    <FeatureCard 
-                        title="Image Alt Text"
-                        description="Improve accessibility and image ranking."
-                        icon={ImageIcon}
-                        iconBg="bg-surface-critical-subdued"
-                        onAction={() => navigate("/app/products")}
-                        isPro={isFree}
-                    />
-                </InlineGrid>
+              <Text variant="headingLg" as="h2">Optimization Tools</Text>
+              <Grid>
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                  <ToolCard 
+                    title="Descriptions"
+                    description="Rewrite product descriptions with high-converting AI prompts."
+                    icon={MagicIcon}
+                    onAction={() => navigate("/app/descriptions")}
+                  />
+                </Grid.Cell>
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                  <ToolCard 
+                    title="SEO Tags"
+                    description="Generate optimized titles and meta tags for search rankings."
+                    icon={SearchIcon}
+                    onAction={() => navigate("/app/seo")}
+                  />
+                </Grid.Cell>
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                  <ToolCard 
+                    title="SEO Audit"
+                    description="Scan your entire store for missing SEO tags and health issues."
+                    icon={CheckCircleIcon}
+                    onAction={() => navigate("/app/audit")}
+                    isPro={isFree}
+                  />
+                </Grid.Cell>
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                  <ToolCard 
+                    title="Alt Text"
+                    description="Auto-generate SEO alt text for your product images."
+                    icon={ImageIcon}
+                    onAction={() => navigate("/app/products")}
+                    isPro={isFree}
+                  />
+                </Grid.Cell>
+              </Grid>
             </BlockStack>
           </Layout.Section>
 
-          {/* Account & Progress Sidebar */}
+          {/* Sidebar */}
           <Layout.Section variant="oneThird">
             <BlockStack gap="400">
-                <Card>
-                    <BlockStack gap="400">
-                        <Text variant="headingMd" as="h2">Usage & Plan</Text>
-                        <BlockStack gap="300">
-                            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                                <InlineStack align="space-between">
-                                    <Text variant="bodySm" fontWeight="medium">Active Plan</Text>
-                                    <Badge tone="info">{planName}</Badge>
-                                </InlineStack>
-                            </Box>
-                            
-                            <BlockStack gap="200">
-                                <InlineStack align="space-between">
-                                    <Text variant="bodySm" tone="subdued">Monthly Credits</Text>
-                                    <Text variant="bodySm" fontWeight="bold">
-                                        {usageCount} / {totalCredits === 999999 ? "∞" : totalCredits}
-                                    </Text>
-                                </InlineStack>
-                                <ProgressBar progress={progress} tone={progress > 90 ? "critical" : "primary"} size="small" />
-                                {isFree && (
-                                    <Text variant="bodyXs" tone="subdued">Credits reset in your next billing cycle.</Text>
-                                )}
-                            </BlockStack>
-                        </BlockStack>
-                        <Divider />
-                        <Button fullWidth onClick={() => navigate("/app/plans")}>Manage Subscriptions</Button>
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">Account Status</Text>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between">
+                      <Text variant="bodySm" tone="subdued">Current Plan</Text>
+                      <Badge tone="info">{planName}</Badge>
+                    </InlineStack>
+                    <Divider />
+                    <BlockStack gap="100">
+                      <InlineStack align="space-between">
+                        <Text variant="bodySm" tone="subdued">Usage (Monthly)</Text>
+                        <Text variant="bodySm" fontWeight="bold">
+                          {usageCount} / {totalCredits === 999999 ? "∞" : totalCredits}
+                        </Text>
+                      </InlineStack>
+                      <ProgressBar progress={progress} tone={progress > 90 ? "critical" : "primary"} size="small" />
                     </BlockStack>
-                </Card>
+                  </BlockStack>
+                  <Button fullWidth onClick={() => navigate("/app/plans")}>Manage Subscription</Button>
+                </BlockStack>
+              </Card>
 
-                <Card>
-                    <BlockStack gap="400">
-                        <Text variant="headingMd" as="h2">Lifetime Stats</Text>
-                        <BlockStack gap="300">
-                            <InlineStack gap="300" wrap={false}>
-                                <StatBox label="Descriptions" value={descriptionsGenerated} icon={MagicIcon} tone="success" />
-                                <StatBox label="SEO Tags" value={seoGenerated} icon={SearchIcon} tone="info" />
-                            </InlineStack>
-                        </BlockStack>
-                    </BlockStack>
-                </Card>
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">Lifetime Impact</Text>
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between">
+                      <Text variant="bodyMd" tone="subdued">AI Descriptions</Text>
+                      <Text variant="bodyMd" fontWeight="bold">{descriptionsGenerated}</Text>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text variant="bodyMd" tone="subdued">SEO Tags</Text>
+                      <Text variant="bodyMd" fontWeight="bold">{seoGenerated}</Text>
+                    </InlineStack>
+                  </BlockStack>
+                </BlockStack>
+              </Card>
             </BlockStack>
           </Layout.Section>
         </Layout>
