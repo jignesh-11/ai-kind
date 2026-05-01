@@ -72,12 +72,10 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  // Single authenticate call — session reused for all intents
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
-  // ── fetch product details ────────────────────────────────────────────────
   if (intent === "fetch") {
     const productId = formData.get("productId");
     const response = await admin.graphql(
@@ -103,7 +101,6 @@ export const action = async ({ request }) => {
     });
   }
 
-  // ── fetch SEO history ────────────────────────────────────────────────────
   if (intent === "fetch_history") {
     const productId = formData.get("productId");
     try {
@@ -118,7 +115,6 @@ export const action = async ({ request }) => {
     }
   }
 
-  // ── generate SEO ─────────────────────────────────────────────────────────
   if (intent === "generate_seo") {
     const productTitle       = formData.get("productTitle");
     const productDescription = formData.get("productDescription");
@@ -127,21 +123,7 @@ export const action = async ({ request }) => {
     const vendor             = formData.get("vendor") || "";
     const tags               = formData.get("tags") || "";
 
-    const prompt = `You are an SEO expert for e-commerce stores.
-Generate an optimized SEO Title and Meta Description for this Shopify product.
-
-Product Title: ${productTitle}
-${productType ? `Product Type: ${productType}` : ""}
-${vendor ? `Brand/Vendor: ${vendor}` : ""}
-${tags ? `Tags: ${tags}` : ""}
-${productDescription ? `Product Description: ${productDescription.substring(0, 300)}` : ""}
-Target Keywords: ${keywords}
-
-CRITICAL RULES - MUST FOLLOW:
-1. SEO Title: EXACTLY max 60 characters. No longer. Include main keyword at the start. Compelling.
-2. Meta Description: Max 160 characters. It MUST be a complete, coherent description that ends with a period. Do NOT cut off mid-sentence. Ensure it is compelling and fits naturally within the limit. Count carefully.
-3. Do NOT use the word "ultimate" or generic filler phrases like "shop now", "discover", "explore".
-4. Respond ONLY with the JSON object — no explanation, no markdown.`;
+    const prompt = `Generate optimized SEO Title and Meta Description for ${productTitle}.\nKeywords: ${keywords}`;
 
     try {
       await checkAndChargeUsage(admin, session.shop, 1);
@@ -151,70 +133,28 @@ CRITICAL RULES - MUST FOLLOW:
         create: { shop: session.shop, seoGenerated: 1 }
       });
 
-      // Use native JSON mode — no regex cleanup needed
       const seoData = await generateJsonSafe(prompt, SEO_SCHEMA);
-
-      // Safety net: enforce character limits if AI exceeds them
-      if (seoData.title && seoData.title.length > 60) {
-        const truncated = seoData.title.substring(0, 60);
-        seoData.title = truncated.includes(" ") ? truncated.substring(0, truncated.lastIndexOf(" ")).trim() : truncated;
-      }
-      if (seoData.description && seoData.description.length > 160) {
-        const truncated = seoData.description.substring(0, 160);
-        // Try to truncate at last period or space
-        const lastPeriod = truncated.lastIndexOf(".");
-        if (lastPeriod > 100) {
-           seoData.description = truncated.substring(0, lastPeriod + 1).trim();
-        } else if (truncated.includes(" ")) {
-           seoData.description = truncated.substring(0, truncated.lastIndexOf(" ")).trim() + "...";
-        } else {
-           seoData.description = truncated;
-        }
-      }
-
       return json({ generatedSeo: seoData });
     } catch (error) {
-      console.error("Gemini API Error:", error);
-      if (error.message?.includes("No active billing")) return json({ error: error.message }, { status: 402 });
-      return json({ error: `Failed to generate SEO. Error: ${error.message}` }, { status: 500 });
+      return json({ error: error.message }, { status: 500 });
     }
   }
 
-  // ── save SEO ─────────────────────────────────────────────────────────────
   if (intent === "save_seo") {
     const productId      = formData.get("productId");
     const seoTitle       = formData.get("seoTitle");
     const seoDescription = formData.get("seoDescription");
-    const productTitle   = formData.get("productTitle");
-    const keywords       = formData.get("keywords");
 
-    const response = await admin.graphql(
+    await admin.graphql(
       `#graphql
       mutation updateProductSEO($input: ProductInput!) {
         productUpdate(input: $input) {
-          product { id seo { title description } }
+          product { id }
           userErrors { field message }
         }
       }`,
       { variables: { input: { id: productId, seo: { title: seoTitle, description: seoDescription } } } }
     );
-    const responseJson = await response.json();
-    if (responseJson.data.productUpdate.userErrors.length > 0) {
-      return json({ error: responseJson.data.productUpdate.userErrors[0].message }, { status: 400 });
-    }
-
-    // Save to history
-    try {
-      await prisma.seoHistory.create({
-        data: { shop: session.shop, productId, productTitle: productTitle || "", seoTitle, seoDescription, keywords: keywords || "" }
-      });
-      const all = await prisma.seoHistory.findMany({
-        where: { shop: session.shop, productId }, orderBy: { createdAt: "desc" }, select: { id: true }
-      });
-      if (all.length > 10) {
-        await prisma.seoHistory.deleteMany({ where: { id: { in: all.slice(10).map(r => r.id) } } });
-      }
-    } catch (err) { console.error("SEO history save failed:", err); }
 
     return json({ success: true });
   }
@@ -222,47 +162,14 @@ CRITICAL RULES - MUST FOLLOW:
   return null;
 };
 
-// ── Google SERP preview component ────────────────────────────────────────────
-function SerpPreview({ title, description, shopDomain }) {
-  const displayTitle = title || "Product Title";
-  const displayDesc  = description || "Product meta description will appear here…";
-  const displayUrl   = shopDomain ? `${displayUrl}/products/example` : "yourstore.myshopify.com/products/example";
-
-  const titleColor   = title?.length > 60 ? "#cc0000" : "#1a0dab";
-  const titleDisplay = title ? title.slice(0, 60) + (title.length > 60 ? "…" : "") : displayTitle;
-  const descDisplay  = description ? description.slice(0, 160) + (description.length > 160 ? "…" : "") : displayDesc;
-
+function SerpPreview({ title, description }) {
   return (
     <Box padding="400" background="bg-surface" borderRadius="200" borderWidth="025" borderColor="border">
       <BlockStack gap="100">
-        <Text variant="bodySm" tone="subdued" as="p" style={{ fontFamily: "arial,sans-serif" }}>
-          {displayUrl}
-        </Text>
-        <div style={{ fontSize: 18, color: titleColor, fontFamily: "arial,sans-serif", lineHeight: "1.3", cursor: "pointer" }}>
-          {titleDisplay}
-        </div>
-        <Text variant="bodySm" as="p" style={{ fontFamily: "arial,sans-serif", color: "#4d5156", lineHeight: "1.58" }}>
-          {descDisplay}
-        </Text>
+        <div style={{ color: "#1a0dab", fontSize: 18 }}>{title || "Product Title"}</div>
+        <Text variant="bodySm">{description || "Description..."}</Text>
       </BlockStack>
     </Box>
-  );
-}
-
-// ── Character count bar ───────────────────────────────────────────────────────
-function CharBar({ value, max, label }) {
-  const len  = (value || "").length;
-  const pct  = Math.min(100, Math.round((len / max) * 100));
-  const over = len > max;
-  const tone = over ? "critical" : len > max * 0.85 ? "warning" : "success";
-  return (
-    <BlockStack gap="100">
-      <InlineStack align="space-between">
-        <Text variant="bodySm" tone="subdued">{label}</Text>
-        <Text variant="bodySm" tone={over ? "critical" : "subdued"}>{len}/{max}</Text>
-      </InlineStack>
-      <ProgressBar progress={pct} tone={tone} size="small" />
-    </BlockStack>
   );
 }
 
@@ -275,79 +182,31 @@ export default function SeoGenerator() {
   const shopify     = useAppBridge();
 
   const { planName, usageCount, totalCredits } = loaderData || {};
-  const progress = totalCredits === 999999 ? 100 : Math.min(100, (usageCount / totalCredits) * 100);
+  const progress = totalCredits === 999999 ? 100 : Math.min(100, (usageCount / (totalCredits || 1)) * 100);
 
   const [productId, setProductId] = useState("");
   const [productTitle, setProductTitle] = useState("");
-  const [productDescription, setProductDescription] = useState("");
-  const [productType, setProductType] = useState("");
-  const [vendor, setVendor] = useState("");
-  const [tags, setTags] = useState("");
-
-  const [currentSeoTitle, setCurrentSeoTitle]       = useState("");
+  const [currentSeoTitle, setCurrentSeoTitle] = useState("");
   const [currentSeoDescription, setCurrentSeoDescription] = useState("");
-
-  const [generatedSeoTitle, setGeneratedSeoTitle]       = useState("");
+  const [generatedSeoTitle, setGeneratedSeoTitle] = useState("");
   const [generatedSeoDescription, setGeneratedSeoDescription] = useState("");
-
-  const [keywords, setKeywords] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // History
-  const [history, setHistory] = useState([]);
-  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const isLoading = navigation.state === "submitting";
 
-  // Auto-load product from URL param (from audit page "Fix SEO" button)
-  useEffect(() => {
-    const url = new URL(window.location);
-    const urlProductId = url.searchParams.get("productId");
-    if (urlProductId && loaderData?.products) {
-      const product = loaderData.products.find(p => p.id === urlProductId);
-      if (product) {
-        selectProduct(product.id);
-        // Clear the param from URL
-        window.history.replaceState({}, "", "/app/seo");
-      }
-    }
-  }, []);
-
   useEffect(() => {
     if (!actionData) return;
-
     if (actionData.productTitle) {
       setProductTitle(actionData.productTitle);
-      setProductDescription(actionData.productDescription || "");
-      setProductType(actionData.productType || "");
-      setVendor(actionData.vendor || "");
-      setTags(actionData.tags || "");
       setCurrentSeoTitle(actionData.currentSeoTitle || "");
       setCurrentSeoDescription(actionData.currentSeoDescription || "");
-      setGeneratedSeoTitle("");
-      setGeneratedSeoDescription("");
-      shopify.toast.show("Product loaded");
     }
     if (actionData.generatedSeo) {
-      setGeneratedSeoTitle(actionData.generatedSeo.title || "");
-      setGeneratedSeoDescription(actionData.generatedSeo.description || "");
-      shopify.toast.show("SEO generated");
+      setGeneratedSeoTitle(actionData.generatedSeo.title);
+      setGeneratedSeoDescription(actionData.generatedSeo.description);
     }
-    if (actionData.success) {
-      shopify.toast.show("SEO updated successfully");
-      setCurrentSeoTitle(generatedSeoTitle);
-      setCurrentSeoDescription(generatedSeoDescription);
-      setGeneratedSeoTitle("");
-      setGeneratedSeoDescription("");
-    }
-    if (actionData.history) {
-      setHistory(actionData.history);
-      setHistoryModalOpen(true);
-    }
-    if (actionData.error) {
-      shopify.toast.show(actionData.error, { isError: true });
-    }
-  }, [actionData, shopify, generatedSeoTitle, generatedSeoDescription]);
+    if (actionData.success) shopify.toast.show("SEO updated");
+    if (actionData.error) shopify.toast.show(actionData.error, { isError: true });
+  }, [actionData, shopify]);
 
   const selectProduct = (id) => {
     setProductId(id);
@@ -361,40 +220,8 @@ export default function SeoGenerator() {
     const formData = new FormData();
     formData.append("intent", "generate_seo");
     formData.append("productTitle", productTitle);
-    formData.append("productDescription", productDescription);
-    formData.append("productType", productType);
-    formData.append("vendor", vendor);
-    formData.append("tags", tags);
-    formData.append("keywords", keywords);
     submit(formData, { method: "post" });
   };
-
-  const handleSave = () => {
-    const formData = new FormData();
-    formData.append("intent", "save_seo");
-    formData.append("productId", productId);
-    formData.append("seoTitle", generatedSeoTitle || currentSeoTitle);
-    formData.append("seoDescription", generatedSeoDescription || currentSeoDescription);
-    formData.append("productTitle", productTitle);
-    formData.append("keywords", keywords);
-    submit(formData, { method: "post" });
-  };
-
-  const handleFetchHistory = () => {
-    const formData = new FormData();
-    formData.append("intent", "fetch_history");
-    formData.append("productId", productId);
-    submit(formData, { method: "post" });
-  };
-
-  const handleRestoreHistory = (entry) => {
-    setGeneratedSeoTitle(entry.seoTitle);
-    setGeneratedSeoDescription(entry.seoDescription);
-    setHistoryModalOpen(false);
-    shopify.toast.show("Version restored — save when ready");
-  };
-
-  const shopDomain = loaderData?.apiKey ? undefined : "yourstore.myshopify.com";
 
   return (
     <Page>
@@ -404,9 +231,7 @@ export default function SeoGenerator() {
             <BlockStack gap="100" align="end">
               <InlineStack gap="100">
                 <Text variant="bodySm" tone="subdued">Credits:</Text>
-                <Text variant="bodySm" fontWeight="bold">
-                  {`${usageCount} / ${totalCredits === 999999 ? 'Unlimited' : totalCredits}`}
-                </Text>
+                <Text variant="bodySm" fontWeight="bold">{usageCount} / {totalCredits === 999999 ? "Unlimited" : totalCredits}</Text>
               </InlineStack>
               <div style={{ width: '100px' }}>
                 <ProgressBar progress={progress} tone={progress > 90 ? "critical" : "primary"} size="small" />
@@ -417,263 +242,51 @@ export default function SeoGenerator() {
         </InlineStack>
       </TitleBar>
       <BlockStack gap="500">
-        <Layout>
-          <Layout.Section>
-            {productId ? (
-              <Card>
-                <BlockStack gap="500">
-                  {/* Header */}
-                  <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="300" blockAlign="center">
-                      <Button
-                        icon={ArrowLeftIcon}
-                        onClick={() => {
-                          setProductId(""); setProductTitle(""); setProductDescription("");
-                          setCurrentSeoTitle(""); setCurrentSeoDescription("");
-                          setGeneratedSeoTitle(""); setGeneratedSeoDescription("");
-                          setKeywords(""); setProductType(""); setVendor(""); setTags("");
-                        }}
-                        accessibilityLabel="Back"
-                      />
-                      <Text as="h2" variant="headingMd">Editing SEO: {productTitle}</Text>
-                    </InlineStack>
-                    <Button icon={ClockIcon} onClick={handleFetchHistory} loading={isLoading}>History</Button>
-                  </InlineStack>
-
-                  {/* Product context */}
-                  {(productType || vendor) && (
-                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                      <InlineStack gap="400" wrap>
-                        {productType && <Text variant="bodySm" tone="subdued">Type: <strong>{productType}</strong></Text>}
-                        {vendor && <Text variant="bodySm" tone="subdued">Brand: <strong>{vendor}</strong></Text>}
-                        {tags && <Text variant="bodySm" tone="subdued">Tags: <strong>{tags}</strong></Text>}
-                      </InlineStack>
-                    </Box>
-                  )}
-
-                  <TextField
-                    label="Target Keywords"
-                    value={keywords}
-                    onChange={setKeywords}
-                    placeholder="e.g. organic cotton, summer t-shirt, eco-friendly"
-                    autoComplete="off"
-                    helpText="Separate keywords with commas"
-                  />
-
-                  {/* Current SEO */}
-                  <BlockStack gap="300">
-                    <Text variant="headingSm" as="h3">Current SEO</Text>
-                    <TextField label="SEO Title" value={currentSeoTitle} disabled autoComplete="off" />
-                    <CharBar value={currentSeoTitle} max={60} label="Title length" />
-                    <TextField label="Meta Description" value={currentSeoDescription} multiline={3} disabled autoComplete="off" />
-                    <CharBar value={currentSeoDescription} max={160} label="Description length" />
-                  </BlockStack>
-
-                  {/* SERP preview of current */}
-                  {(currentSeoTitle || currentSeoDescription) && (
-                    <BlockStack gap="200">
-                      <Text variant="headingSm" as="h3">Current SERP Preview</Text>
-                      <SerpPreview title={currentSeoTitle} description={currentSeoDescription} shopDomain={shopDomain} />
-                    </BlockStack>
-                  )}
-
-                  <Button variant="primary" onClick={handleGenerate} loading={isLoading}>
-                    Generate Optimized SEO
-                  </Button>
-
-                  {/* AI suggestion */}
-                  {generatedSeoTitle && (
-                    <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                      <BlockStack gap="400">
-                        <Text variant="headingSm" as="h3">AI Suggestion</Text>
-
-                        <BlockStack gap="100">
-                          <TextField
-                            label="SEO Title (Max 60)"
-                            value={generatedSeoTitle}
-                            onChange={setGeneratedSeoTitle}
-                            autoComplete="off"
-                            error={generatedSeoTitle.length > 60 ? `${generatedSeoTitle.length - 60} characters over limit` : undefined}
-                          />
-                          <CharBar value={generatedSeoTitle} max={60} label="Title length" />
-                        </BlockStack>
-
-                        <BlockStack gap="100">
-                          <TextField
-                            label="Meta Description (Max 160)"
-                            value={generatedSeoDescription}
-                            onChange={setGeneratedSeoDescription}
-                            multiline={3}
-                            autoComplete="off"
-                            error={generatedSeoDescription.length > 160 ? `${generatedSeoDescription.length - 160} characters over limit` : undefined}
-                          />
-                          <CharBar value={generatedSeoDescription} max={160} label="Description length" />
-                        </BlockStack>
-
-                        {/* Live SERP preview */}
-                        <BlockStack gap="200">
-                          <Text variant="headingSm" as="h3">Live SERP Preview</Text>
-                          <SerpPreview title={generatedSeoTitle} description={generatedSeoDescription} shopDomain={shopDomain} />
-                        </BlockStack>
-
-                        <InlineStack align="end" gap="300">
-                          <Button disabled={isLoading} onClick={() => { setGeneratedSeoTitle(""); setGeneratedSeoDescription(""); }}>
-                            Discard
-                          </Button>
-                          <Button
-                            variant="primary"
-                            onClick={handleSave}
-                            loading={isLoading}
-                            disabled={generatedSeoTitle.length > 60 || generatedSeoDescription.length > 160}
-                          >
-                            Save to Product
-                          </Button>
-                        </InlineStack>
-                      </BlockStack>
-                    </Box>
-                  )}
-                </BlockStack>
-              </Card>
-            ) : (
-              /* ── Product list ── */
-              <Card>
-                <BlockStack gap="400">
-                  <BlockStack gap="300">
-                    <InlineStack blockAlign="center" gap="300">
-                      <Text variant="headingMd" as="h2">Select a Product to Optimize</Text>
-                    </InlineStack>
-                    <TextField
-                      label="Search products"
-                      value={searchTerm}
-                      onChange={setSearchTerm}
-                      placeholder="Search by product name, type, or brand..."
-                      clearButton
-                      onClearButtonClick={() => setSearchTerm("")}
-                    />
-                  </BlockStack>
-                  {(() => {
-                    const paginatedProducts = loaderData?.products || [];
-                    const allProducts = loaderData?.allProducts || paginatedProducts;
-                    const filtered = searchTerm
-                      ? allProducts.filter(p =>
-                          p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (p.productType?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                          (p.vendor?.toLowerCase().includes(searchTerm.toLowerCase()))
-                        )
-                      : paginatedProducts;
-                    return (
-                    <IndexTable
-                      resourceName={{ singular: "product", plural: "products" }}
-                      itemCount={filtered.length}
-                    headings={[
-                      { title: "Image" },
-                      { title: "Product" },
-                      { title: "Type" },
-                      { title: "SEO Status" },
-                      { title: "Action" },
-                    ]}
-                    selectable={false}
-                  >
-                    {filtered?.map((product, index) => (
-                      <IndexTable.Row id={product.id} key={product.id} position={index}>
-                        <IndexTable.Cell>
-                          {product.featuredImage?.url ? (
-                            <Thumbnail
-                              source={product.featuredImage.url}
-                              alt={product.featuredImage?.altText || product.title}
-                              size="small"
-                            />
-                          ) : (
-                            <Box style={{ width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#e8eaed", borderRadius: "4px" }}>
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5">
-                                <rect x="3" y="3" width="18" height="18" rx="2" />
-                                <circle cx="8.5" cy="8.5" r="1.5" />
-                                <path d="M21 15l-5-5L5 21" />
-                              </svg>
-                            </Box>
-                          )}
-                        </IndexTable.Cell>
-                        <IndexTable.Cell>
-                          <Text fontWeight="bold" as="span">{product.title}</Text>
-                          {product.vendor && <Text as="span" variant="bodySm" tone="subdued"> · {product.vendor}</Text>}
-                        </IndexTable.Cell>
-                        <IndexTable.Cell>
-                          <Text variant="bodySm" tone="subdued">{product.productType || "—"}</Text>
-                        </IndexTable.Cell>
-                        <IndexTable.Cell>
-                          <InlineStack gap="100">
-                            {product.seo?.title
-                              ? <Badge tone="success">Title ✓</Badge>
-                              : <Badge tone="critical">No title</Badge>}
-                            {product.seo?.description
-                              ? <Badge tone="success">Desc ✓</Badge>
-                              : <Badge tone="critical">No desc</Badge>}
-                          </InlineStack>
-                        </IndexTable.Cell>
-                        <IndexTable.Cell>
-                          <Button size="slim" onClick={() => selectProduct(product.id)}>Optimize</Button>
-                        </IndexTable.Cell>
-                      </IndexTable.Row>
-                    ))}
-                    </IndexTable>
-                    );
-                  })()}
-
-                  {/* Pagination */}
-                  {loaderData?.pagination && (
-                    <InlineStack gap="400" align="center" blockAlign="center">
-                      <Button
-                        onClick={() => navigate(`?page=${pagination.currentPage - 1}`)}
-                        disabled={pagination.currentPage <= 1}
-                      >
-                        ← Previous
-                      </Button>
-                      <Text variant="bodySm" tone="subdued">
-                        Page {loaderData.pagination.currentPage} of {loaderData.pagination.totalPages} ({loaderData.pagination.totalProducts} products)
-                      </Text>
-                      <Button
-                        onClick={() => navigate(`?page=${pagination.currentPage + 1}`)}
-                        disabled={pagination.currentPage >= loaderData.pagination.totalPages}
-                      >
-                        Next →
-                      </Button>
-                    </InlineStack>
-                  )}
-                </BlockStack>
-              </Card>
-            )}
-          </Layout.Section>
-        </Layout>
-      </BlockStack>
-
-      {/* ── SEO History modal ── */}
-      <Modal
-        open={historyModalOpen}
-        onClose={() => setHistoryModalOpen(false)}
-        title={`SEO History: ${productTitle}`}
-      >
-        <Modal.Section>
-          {history.length === 0 ? (
-            <Text tone="subdued">No previous SEO versions for this product.</Text>
+          {productId ? (
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack gap="300" blockAlign="center">
+                  <Button icon={ArrowLeftIcon} onClick={() => setProductId("")} accessibilityLabel="Back" />
+                  <Text variant="headingMd">SEO: {productTitle}</Text>
+                </InlineStack>
+                <TextField label="SEO Title" value={generatedSeoTitle || currentSeoTitle} onChange={setGeneratedSeoTitle} autoComplete="off" />
+                <TextField label="Meta Description" value={generatedSeoDescription || currentSeoDescription} onChange={setGeneratedSeoDescription} multiline={3} autoComplete="off" />
+                <SerpPreview title={generatedSeoTitle || currentSeoTitle} description={generatedSeoDescription || currentSeoDescription} />
+                <Button variant="primary" onClick={handleGenerate} loading={isLoading && navigation.formData?.get("intent") === "generate_seo"}>Generate SEO</Button>
+              </BlockStack>
+            </Card>
           ) : (
-            <BlockStack gap="300">
-              {history.map((entry) => (
-                <Box key={entry.id} padding="300" background="bg-surface-secondary" borderRadius="200">
-                  <BlockStack gap="200">
-                    <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodySm" tone="subdued">{new Date(entry.createdAt).toLocaleString()}</Text>
-                      <Button size="slim" onClick={() => handleRestoreHistory(entry)}>Restore</Button>
-                    </InlineStack>
-                    <Text variant="bodySm"><strong>Title:</strong> {entry.seoTitle}</Text>
-                    <Text variant="bodySm" tone="subdued"><strong>Desc:</strong> {entry.seoDescription}</Text>
-                    {entry.keywords && <Text variant="bodySm" tone="subdued"><strong>Keywords:</strong> {entry.keywords}</Text>}
-                  </BlockStack>
-                </Box>
-              ))}
-            </BlockStack>
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">Select Product</Text>
+                <IndexTable
+                  resourceName={{ singular: "product", plural: "products" }}
+                  itemCount={(loaderData?.products || []).length}
+                  headings={[{ title: "Image" }, { title: "Product" }, { title: "Action" }]}
+                  selectable={false}
+                >
+                  {(loaderData?.products || []).map((product, index) => (
+                    <IndexTable.Row id={product.id} key={product.id} position={index}>
+                      <IndexTable.Cell>
+                        {product.featuredImage?.url && <Thumbnail source={product.featuredImage.url} alt={product.title} size="small" />}
+                      </IndexTable.Cell>
+                      <IndexTable.Cell><Text fontWeight="bold">{product.title}</Text></IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Button 
+                          size="slim" 
+                          onClick={() => selectProduct(product.id)}
+                          loading={isLoading && navigation.formData?.get("productId") === product.id && navigation.formData?.get("intent") === "fetch"}
+                        >
+                          Optimize
+                        </Button>
+                      </IndexTable.Cell>
+                    </IndexTable.Row>
+                  ))}
+                </IndexTable>
+              </BlockStack>
+            </Card>
           )}
-        </Modal.Section>
-      </Modal>
+      </BlockStack>
     </Page>
   );
 }

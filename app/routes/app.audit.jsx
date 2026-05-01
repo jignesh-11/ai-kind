@@ -1,6 +1,6 @@
 import {
   Page, Layout, Card, Text, BlockStack, InlineStack, Badge,
-  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, ButtonGroup, Modal, Banner
+  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, Modal, Banner
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { json } from "@remix-run/node";
