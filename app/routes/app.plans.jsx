@@ -105,13 +105,15 @@ export const action = async ({ request }) => {
     }
 
     if (planName === PRO_PLAN || planName === ELITE_PLAN) {
-        const appUrl = process.env.SHOPIFY_APP_URL || new URL(request.url).origin;
-        const cleanAppUrl = appUrl.replace(/\/$/, "");
-        
+        // Redirect directly to the embedded Shopify Admin URL
+        const shopName = session.shop.replace(".myshopify.com", "");
+        const appHandle = "copyspark-ai-seo-description";
+        const returnUrl = `https://admin.shopify.com/store/${shopName}/apps/${appHandle}/app/plans`;
+
         return await billing.request({
             plan: planName,
             isTest: isTest,
-            returnUrl: `${cleanAppUrl}/app/plans?shop=${session.shop}`,
+            returnUrl: returnUrl,
         });
     }
 
