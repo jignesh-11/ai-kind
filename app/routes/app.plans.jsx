@@ -7,79 +7,65 @@ import {
     Card,
     BlockStack,
     Text,
-    ProgressBar,
-    Banner,
     Button,
     InlineGrid,
     Box,
-
     Divider,
     InlineStack,
+    Icon,
+    Banner,
+    List,
+    Badge,
 } from "@shopify/polaris";
+import { CheckIcon, StarIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
-import { authenticate } from "../shopify.server";
+import { authenticate, FREE_PLAN, PRO_PLAN, ELITE_PLAN } from "../shopify.server";
+import { PLAN_CONFIG } from "../billing.server";
 import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
-    const { session } = await authenticate.admin(request);
+    const { session, billing } = await authenticate.admin(request);
 
     const usage = await prisma.usageStat.findUnique({
         where: { shop: session.shop }
     });
 
-    // Detect if this is a development store
-    // Development stores end with .myshopify.com and are free test stores
     const isDevelopmentStore = session.shop.includes('.myshopify.com');
 
-    // Check subscription status
-    const billingCheck = await authenticate.admin(request).then(({ billing }) => billing.check({
-        plans: ["Growth"],
+    const billingCheck = await billing.check({
+        plans: [PRO_PLAN, ELITE_PLAN],
         isTest: isDevelopmentStore,
-    })).catch(() => ({ hasActivePayment: false }));
+    });
 
     return json({
         usageCount: usage?.monthlyUsageCount || 0,
-        cycleStart: usage?.billingCycleStart || new Date(),
-        shop: session.shop,
+        currentPlan: usage?.planName || FREE_PLAN,
         hasActivePayment: billingCheck.hasActivePayment,
         credits: usage?.credits || 0,
-        subscriptionId: usage?.subscriptionId || ""
+        activeSubscriptions: billingCheck.appSubscriptions
     });
 };
 
 export const action = async ({ request }) => {
-    const { admin } = await authenticate.admin(request);
+    const { admin, billing, session } = await authenticate.admin(request);
     const formData = await request.formData();
-    const intent = formData.get("intent");
+    const planName = formData.get("planName");
+    const isDevelopmentStore = session.shop.includes('.myshopify.com');
 
-    if (intent === 'cancel') {
-        const subscriptions = await admin.graphql(
-            `#graphql
-            query {
-                currentAppInstallation {
-                    activeSubscriptions {
-                        id
-                    }
-                }
-            }`
-        );
-        const subJson = await subscriptions.json();
-        const activeSubs = subJson.data.currentAppInstallation.activeSubscriptions;
+    if (planName === FREE_PLAN) {
+        // Cancel existing subscriptions if any
+        const billingCheck = await billing.check({
+            plans: [PRO_PLAN, ELITE_PLAN],
+            isTest: isDevelopmentStore,
+        });
 
-        if (activeSubs.length > 0) {
-            for (const sub of activeSubs) {
+        if (billingCheck.hasActivePayment) {
+            for (const sub of billingCheck.appSubscriptions) {
                 await admin.graphql(
                     `#graphql
                     mutation AppSubscriptionCancel($id: ID!) {
                         appSubscriptionCancel(id: $id) {
-                            userErrors {
-                                field
-                                message
-                            }
-                            appSubscription {
-                                id
-                                status
-                            }
+                            userErrors { field message }
                         }
                     }`,
                     { variables: { id: sub.id } }
@@ -87,215 +73,129 @@ export const action = async ({ request }) => {
             }
         }
 
-        // Clear local DB too
-        const { session } = await authenticate.admin(request);
         await prisma.usageStat.update({
             where: { shop: session.shop },
-            data: { subscriptionId: null, planStatus: 'CANCELLED' }
+            data: { planName: FREE_PLAN, planStatus: 'ACTIVE' }
         });
 
-        return json({ status: 'cancelled' });
+        return json({ status: 'success' });
     }
 
-    // Default intent: subscribe
-    try {
-        // Detect if this is a development store for test mode
-        const { session: sessionForTest } = await authenticate.admin(request);
-        const isDevelopmentStore = sessionForTest.shop.includes('.myshopify.com');
-
-        const response = await admin.graphql(
-            `#graphql
-            mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean!) {
-              appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems) {
-                userErrors {
-                  field
-                  message
-                }
-                confirmationUrl
-                appSubscription {
-                  id
-                }
-              }
-            }`,
-            {
-                variables: {
-                    name: "Growth",
-                    test: isDevelopmentStore,
-                    returnUrl: `https://${new URL(request.url).hostname}/app/plans?shop=${new URL(request.url).searchParams.get("shop")}&host=${new URL(request.url).searchParams.get("host")}`,
-                    lineItems: [
-                        {
-                            plan: {
-                                appRecurringPricingDetails: {
-                                    price: { amount: 0.0, currencyCode: "USD" }
-                                }
-                            }
-                        },
-                        {
-                            plan: {
-                                appUsagePricingDetails: {
-                                    terms: "30 free credits included on first install (one-time), then $0.015 per generation.",
-                                    cappedAmount: { amount: 20.0, currencyCode: "USD" }
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
-        );
-
-        const responseJson = await response.json();
-        const confirmationUrl = responseJson.data.appSubscriptionCreate.confirmationUrl;
-        const userErrors = responseJson.data.appSubscriptionCreate.userErrors;
-
-        if (responseJson.data.appSubscriptionCreate.appSubscription) {
-            const subId = responseJson.data.appSubscriptionCreate.appSubscription.id;
-            console.log("Saving Subscription ID:", subId);
-            const { session: sessionForSave } = await authenticate.admin(request);
-            const saved = await prisma.usageStat.upsert({
-                where: { shop: sessionForSave.shop },
-                create: { shop: sessionForSave.shop, subscriptionId: subId },
-                update: { subscriptionId: subId }
-            });
-            console.log("Saved Subscription Record:", saved);
-        }
-
-        if (userErrors && userErrors.length > 0) {
-            console.error("Billing User Errors:", userErrors);
-            if (userErrors.some(e => e.message.includes("public distribution"))) {
-                return json({ error: "Billing API blocked: App is not set to Public Distribution." });
-            }
-            return json({ error: userErrors.map(e => e.message).join(", ") });
-        }
-
-        return json({ confirmationUrl });
-
-    } catch (error) {
-        console.error("Billing Exception:", error);
-        if (error.message && error.message.includes("public distribution")) {
-            return json({ error: "Billing API unavailable: App must have Public Distribution in Partner Dashboard." });
-        }
-        return json({ error: error.message });
+    if (planName === PRO_PLAN || planName === ELITE_PLAN) {
+        return await billing.request({
+            plan: planName,
+            isTest: isDevelopmentStore,
+            returnUrl: `https://${new URL(request.url).hostname}/app/plans?shop=${session.shop}`,
+        });
     }
+
+    return json({ error: "Invalid plan" }, { status: 400 });
 };
 
+function PlanCard({ name, price, credits, features, isCurrent, onSelect, loading, isSpecial }) {
+    return (
+        <Card background={isCurrent ? "bg-surface-secondary" : "bg-surface"}>
+            <BlockStack gap="400">
+                <BlockStack gap="100">
+                    <InlineStack align="space-between">
+                        <Text variant="headingMd" as="h3">{name}</Text>
+                        {isSpecial && <Badge tone="warning" icon={StarIcon}>Launch Special</Badge>}
+                    </InlineStack>
+                    <Text variant="headingLg" as="p">${price}<Text variant="bodySm" as="span" tone="subdued">/mo</Text></Text>
+                </BlockStack>
+                <Divider />
+                <BlockStack gap="200">
+                    <Text variant="bodyMd" fontWeight="bold">{credits === 999999 ? 'Unlimited' : credits} Credits</Text>
+                    <List>
+                        {features.map((feature, index) => (
+                            <List.Item key={index}>
+                                <InlineStack gap="200">
+                                    <Icon source={CheckIcon} tone="success" />
+                                    <Text variant="bodySm">{feature}</Text>
+                                </InlineStack>
+                            </List.Item>
+                        ))}
+                    </List>
+                </BlockStack>
+                <Button
+                    variant={isCurrent ? "secondary" : "primary"}
+                    disabled={isCurrent}
+                    loading={loading}
+                    onClick={() => onSelect(name)}
+                >
+                    {isCurrent ? "Current Plan" : "Select Plan"}
+                </Button>
+            </BlockStack>
+        </Card>
+    );
+}
 
 export default function Plans() {
-    const { usageCount, cycleStart, hasActivePayment, credits, subscriptionId } = useLoaderData();
-    const actionData = useActionData();
+    const { usageCount, currentPlan } = useLoaderData();
     const submit = useSubmit();
+    const actionData = useActionData();
+    const navigation = useNavigation();
 
-    useEffect(() => {
-        if (actionData?.confirmationUrl) {
-            // Break out of the iframe
-            window.top.location.href = actionData.confirmationUrl;
-        }
-    }, [actionData]);
-
-    const freeLimit = 30;
-    const isFreeTier = usageCount <= freeLimit;
-    const percentUsed = Math.min((usageCount / freeLimit) * 100, 100);
-
-    // Calculate potential cost
-    const billableCount = Math.max(0, usageCount - freeLimit);
-    const estimatedCost = (billableCount * 0.015).toFixed(3);
-
-    const formattedDate = new Date(cycleStart).toLocaleDateString();
-
-    const [showPaidBanner, setShowPaidBanner] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('hidePaidBanner') !== 'true';
-        }
-        return true;
-    });
-
-    const [showCreditsBanner, setShowCreditsBanner] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('hideCreditsBanner') !== 'true';
-        }
-        return true;
-    });
-
-    const handleDismissPaidBanner = () => {
-        setShowPaidBanner(false);
-        localStorage.setItem('hidePaidBanner', 'true');
+    const handleSelectPlan = (planName) => {
+        submit({ planName }, { method: "post" });
     };
 
-    const handleDismissCreditsBanner = () => {
-        setShowCreditsBanner(false);
-        localStorage.setItem('hideCreditsBanner', 'true');
-    };
+    const isLoading = navigation.state === "submitting";
 
     return (
         <Page>
             <TitleBar title="Plans & Billing" />
             <Layout>
                 <Layout.Section>
-                    <BlockStack gap="500">
-
-
+                    <BlockStack gap="600">
+                        <Banner tone="info" title="Launch Phase: Special Early Bird Pricing!">
+                            <p>We are currently in our early launch phase. Enjoy discounted pricing and increased free credits while we gather feedback and improve the app!</p>
+                        </Banner>
 
                         <Card>
-                            <BlockStack gap="500">
-                                <Text variant="headingMd" as="h2">Usage Statistics</Text>
-
-                                <InlineGrid columns={2} gap="400">
-                                    <Box>
-                                        <BlockStack gap="100">
-                                            <Text variant="headingSm">Total Generated</Text>
-                                            <Text variant="headingLg">{usageCount}</Text>
-                                        </BlockStack>
-                                    </Box>
-                                    <Box>
-                                        <BlockStack gap="100">
-                                            <Text variant="headingSm">Plan Status</Text>
-                                            <Text variant="headingLg">Free</Text>
-                                        </BlockStack>
-                                    </Box>
-                                </InlineGrid>
+                            <BlockStack gap="200">
+                                <Text variant="headingMd" as="h2">Monthly Usage</Text>
+                                <Text as="p">You have used {usageCount} credits in your current billing cycle.</Text>
                             </BlockStack>
                         </Card>
 
-                        <Card>
-                            <BlockStack gap="400">
-                                <Text variant="headingMd">Plan Details: Growth</Text>
-                                <InlineStack align="space-between" blockAlign="center">
-                                    <Text>Credits Available:</Text>
-                                    <Text variant="headingLg">{credits}</Text>
-                                </InlineStack>
-                                <Divider />
-                                <InlineStack align="space-between" blockAlign="center">
-                                    <Text variant="headingMd">Subscription Status</Text>
-                                    {hasActivePayment ? (
-                                        <Banner tone="success">
-                                            <p>Plan Active</p>
-                                        </Banner>
-                                    ) : (
-                                        <Banner tone="warning">
-                                            <p>Plan Not Active</p>
-                                        </Banner>
-                                    )}
-                                </InlineStack>
+                        <InlineGrid columns={{ xs: 1, md: 3 }} gap="400">
+                            <PlanCard
+                                name={FREE_PLAN}
+                                price="0"
+                                credits={PLAN_CONFIG[FREE_PLAN].credits}
+                                features={["Product Descriptions", "SEO Meta Tags"]}
+                                isCurrent={currentPlan === FREE_PLAN}
+                                onSelect={handleSelectPlan}
+                                loading={isLoading}
+                            />
+                            <PlanCard
+                                name={PRO_PLAN}
+                                price="9.99"
+                                credits={PLAN_CONFIG[PRO_PLAN].credits}
+                                features={["Everything in Free", "Image Alt Text", "SEO Audit PDFs", "Brand Voice"]}
+                                isCurrent={currentPlan === PRO_PLAN}
+                                onSelect={handleSelectPlan}
+                                loading={isLoading}
+                                isSpecial
+                            />
+                            <PlanCard
+                                name={ELITE_PLAN}
+                                price="24.99"
+                                credits={PLAN_CONFIG[ELITE_PLAN].credits}
+                                features={["Everything in Pro", "Bulk Optimization", "Priority Support", "Unlimited AI"]}
+                                isCurrent={currentPlan === ELITE_PLAN}
+                                onSelect={handleSelectPlan}
+                                loading={isLoading}
+                                isSpecial
+                            />
+                        </InlineGrid>
 
-                                <BlockStack gap="200">
-                                    <Text as="p"><strong>Monthly Fee:</strong> Free</Text>
-                                    <Text as="p"><strong>Included:</strong> Unlimited Generation</Text>
-                                </BlockStack>
-
-                                <Divider />
-
-
-
-                                <Button variant="primary" onClick={() => submit({}, { method: "post" })}>
-                                    Activate / Update Plan
-                                </Button>
-
-                                {actionData?.error && (
-                                    <Banner tone="critical">
-                                        <p>{actionData.error}</p>
-                                    </Banner>
-                                )}
-                            </BlockStack>
-                        </Card>
+                        {actionData?.error && (
+                            <Banner tone="critical">
+                                <p>{actionData.error}</p>
+                            </Banner>
+                        )}
                     </BlockStack>
                 </Layout.Section>
             </Layout>

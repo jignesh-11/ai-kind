@@ -12,7 +12,7 @@ export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
 
-  // Initialize 30 free credits for new installations
+  // Initialize launch credits for new installations
   const isNewInstall = await initializeFreeCredits(session.shop);
 
   return { apiKey: process.env.SHOPIFY_API_KEY || "", isNewInstall };

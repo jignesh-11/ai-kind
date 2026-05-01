@@ -1,35 +1,72 @@
 import prisma from "./db.server";
-console.log("Creating Usage Record... (Version: Managed Pricing Fix 2)");
+import { FREE_PLAN, PRO_PLAN, ELITE_PLAN } from "./shopify.server";
+
+export const PLAN_CONFIG = {
+    [FREE_PLAN]: {
+        credits: 20, // Increased for launch
+        features: ["descriptions", "seo"],
+    },
+    [PRO_PLAN]: {
+        credits: 500,
+        features: ["descriptions", "seo", "alt-text", "audit"],
+    },
+    [ELITE_PLAN]: {
+        credits: 999999, // Unlimited
+        features: ["descriptions", "seo", "alt-text", "audit", "bulk"],
+    },
+};
 
 export const checkAndChargeUsage = async (admin, shop, count = 1) => {
-    // BILLING DISABLED: This function now only tracks usage stats without charging or checking credits.
-    console.log(`[Billing] checkAndChargeUsage called for ${shop}. Billing is DISABLED.`);
-
     // 1. Get or Init Usage Stats
     let usage = await prisma.usageStat.findUnique({ where: { shop } });
 
     if (!usage) {
-        console.log(`[Billing] Creating new usage record for ${shop} (fallback)`);
         usage = await prisma.usageStat.create({
             data: {
                 shop,
                 billingCycleStart: new Date(),
                 monthlyUsageCount: 0,
-                descriptionsGenerated: 0,
-                seoGenerated: 0,
-                credits: 999999, // Give virtually infinite credits just in case
+                planName: FREE_PLAN,
+                planStatus: "ACTIVE",
+                credits: PLAN_CONFIG[FREE_PLAN].credits,
             },
         });
     }
 
-    // 5. Update Local Stats (Only increment usage, do not decrement credits)
+    // 2. Check for Monthly Reset
+    const now = new Date();
+    const cycleStart = new Date(usage.billingCycleStart);
+    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+
+    if (cycleStart < thirtyDaysAgo) {
+        console.log(`[Billing] Resetting monthly usage for ${shop}`);
+        const currentPlan = usage.planName || FREE_PLAN;
+        usage = await prisma.usageStat.update({
+            where: { shop },
+            data: {
+                monthlyUsageCount: 0,
+                billingCycleStart: new Date(),
+                credits: PLAN_CONFIG[currentPlan].credits,
+            },
+        });
+    }
+
+    // 3. Check Credits
+    const currentPlan = usage.planName || FREE_PLAN;
+    const planLimits = PLAN_CONFIG[currentPlan] || PLAN_CONFIG[FREE_PLAN];
+
+    if (usage.monthlyUsageCount + count > planLimits.credits) {
+        console.log(`[Billing] Usage limit exceeded for ${shop} on ${currentPlan}`);
+        throw new Error(`Usage limit exceeded for your ${currentPlan} plan. Please upgrade for more credits.`);
+    }
+
+    // 4. Update Local Stats
     await prisma.usageStat.update({
         where: { shop },
         data: {
             monthlyUsageCount: { increment: count },
-            // credits: { decrement: creditsUsed } // Do not decrement credits
         },
     });
 
-    return true; // Always allow usage
+    return true;
 };

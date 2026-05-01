@@ -68,6 +68,7 @@ export const loader = async ({ request }) => {
     allProducts, // Return all products for searching
     products: paginatedProducts,
     credits: usage?.credits || 0,
+    planName: usage?.planName || "Free Forever",
     settings: settings || { defaultTone: "professional", defaultLang: "English", defaultLen: "short" },
     pagination: {
       currentPage,

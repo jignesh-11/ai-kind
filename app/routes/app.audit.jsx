@@ -8,6 +8,7 @@ import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { generateAuditPDF, logAuditExport } from "../pdf.server";
+import { checkAndChargeUsage, PLAN_CONFIG } from "../billing.server";
 import prisma from "../db.server";
 
 /**
@@ -96,6 +97,16 @@ export const action = async ({ request }) => {
   // ── Download audit as PDF ──────────────────────────────────────
   if (intent === "download_pdf") {
     try {
+      // 1. Check Usage & Plan
+      const usage = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
+      const currentPlan = usage?.planName || "Free Forever";
+
+      if (!PLAN_CONFIG[currentPlan]?.features.includes("audit")) {
+        return json({ error: "The SEO PDF Audit is only available on Pro and Elite plans. Please upgrade to download." }, { status: 403 });
+      }
+
+      await checkAndChargeUsage(admin, session.shop, 1);
+
       const response = await admin.graphql(
         `#graphql
         query getProductsForAudit {
