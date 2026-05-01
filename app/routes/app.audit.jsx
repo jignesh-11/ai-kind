@@ -1,6 +1,6 @@
 import {
   Page, Layout, Card, Text, BlockStack, InlineStack, Badge,
-  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, ButtonGroup, Modal
+  Button, Box, IndexTable, Thumbnail, ProgressBar, Grid, Icon, ButtonGroup, Modal, Banner
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { json } from "@remix-run/node";
@@ -9,8 +9,9 @@ import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { generateAuditPDF, logAuditExport } from "../pdf.server";
 import { checkAndChargeUsage } from "../billing.server";
-import { PLAN_CONFIG } from "../constants";
+import { FREE_PLAN, PLAN_CONFIG } from "../constants";
 import prisma from "../db.server";
+import { LockIcon } from "@shopify/polaris-icons";
 
 /**
  * Compute recommended fixes from audit data
@@ -100,7 +101,7 @@ export const action = async ({ request }) => {
     try {
       // 1. Check Usage & Plan
       const usage = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
-      const currentPlan = usage?.planName || "Free Forever";
+      const currentPlan = usage?.planName || FREE_PLAN;
 
       if (!PLAN_CONFIG[currentPlan]?.features.includes("audit")) {
         return json({ error: "The SEO PDF Audit is only available on Pro and Elite plans. Please upgrade to download." }, { status: 403 });
@@ -165,10 +166,14 @@ export const action = async ({ request }) => {
 };
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1", 10);
   const perPage = 20;
+
+  const usage = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
+  const planName = usage?.planName || FREE_PLAN;
+  const isFree = planName === FREE_PLAN;
 
   const response = await admin.graphql(
     `#graphql
@@ -213,6 +218,7 @@ export const loader = async ({ request }) => {
     missingDesc,
     missingSeo,
     recommendedFixes,
+    isFree,
     pagination: {
       currentPage,
       totalPages,
@@ -223,7 +229,7 @@ export const loader = async ({ request }) => {
 };
 
 export default function SeoAudit() {
-  const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes, pagination } = useLoaderData();
+  const { products, totalScore, perfect, hasIssues, missingDesc, missingSeo, recommendedFixes, pagination, isFree } = useLoaderData();
   const navigate = useNavigate();
 
   const scoreColor = totalScore >= 80 ? "success" : totalScore >= 50 ? "warning" : "critical";
@@ -313,57 +319,76 @@ export default function SeoAudit() {
           <Card>
             <BlockStack gap="400">
               <Text as="h2" variant="headingMd">Recommended Fixes</Text>
-              <BlockStack gap="300">
-                {recommendedFixes.map((fix, index) => (
-                  <Box key={index} padding="300" background="bg-surface-secondary" borderRadius="200">
-                    <BlockStack gap="200">
-                      <InlineStack blockAlign="center" gap="200">
-                        <Badge tone={fix.severity === "high" ? "critical" : fix.severity === "medium" ? "warning" : "info"}>
-                          {fix.severity.toUpperCase()}
-                        </Badge>
-                        <Text fontWeight="bold">{fix.type}</Text>
-                        <Text tone="subdued">({fix.count} issue{fix.count !== 1 ? "s" : ""})</Text>
-                      </InlineStack>
-                      {fix.products.length > 0 && (
+              {isFree ? (
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                   <BlockStack gap="400" align="center">
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                          <Icon source={LockIcon} tone="subdued" />
+                        </div>
                         <BlockStack gap="100">
-                          <Text variant="bodySm" tone="subdued">
-                            Affected products:
-                          </Text>
-                          <BlockStack gap="100">
-                            {fix.products.slice(0, 3).map((product, i) => (
-                              <Text key={i} variant="bodySm">
-                                • {product.productTitle}
-                              </Text>
-                            ))}
-                            {fix.products.length > 3 && (
-                              <Text variant="bodySm" tone="subdued">
-                                ... and {fix.products.length - 3} more
-                              </Text>
-                            )}
-                          </BlockStack>
+                          <Text variant="headingSm" as="h3">Recommended Fixes are Locked</Text>
+                          <Text tone="subdued">Upgrade to Pro or Elite to see personalized recommendations and bulk fix options.</Text>
                         </BlockStack>
-                      )}
-                      <InlineStack gap="200">
-                        {fix.type.includes("SEO") && (
-                          <Button size="slim" onClick={() => navigate("/app/seo")}>
-                            Fix SEO
-                          </Button>
-                        )}
-                        {fix.type.includes("Description") && (
-                          <Button size="slim" onClick={() => navigate("/app/descriptions")}>
-                            Fix Descriptions
-                          </Button>
-                        )}
-                        {fix.type.includes("Alt Text") && (
-                          <Button size="slim" onClick={handleGenerateAltText} variant="primary">
-                            Manage Products
-                          </Button>
-                        )}
+                      </div>
+                      <InlineStack align="center">
+                        <Button variant="primary" onClick={() => navigate("/app/plans")}>View Plans</Button>
                       </InlineStack>
-                    </BlockStack>
-                  </Box>
-                ))}
-              </BlockStack>
+                   </BlockStack>
+                </Box>
+              ) : (
+                <BlockStack gap="300">
+                  {recommendedFixes.map((fix, index) => (
+                    <Box key={index} padding="300" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="200">
+                        <InlineStack blockAlign="center" gap="200">
+                          <Badge tone={fix.severity === "high" ? "critical" : fix.severity === "medium" ? "warning" : "info"}>
+                            {fix.severity.toUpperCase()}
+                          </Badge>
+                          <Text fontWeight="bold">{fix.type}</Text>
+                          <Text tone="subdued">({fix.count} issue{fix.count !== 1 ? "s" : ""})</Text>
+                        </InlineStack>
+                        {fix.products.length > 0 && (
+                          <BlockStack gap="100">
+                            <Text variant="bodySm" tone="subdued">
+                              Affected products:
+                            </Text>
+                            <BlockStack gap="100">
+                              {fix.products.slice(0, 3).map((product, i) => (
+                                <Text key={i} variant="bodySm">
+                                  • {product.productTitle}
+                                </Text>
+                              ))}
+                              {fix.products.length > 3 && (
+                                <Text variant="bodySm" tone="subdued">
+                                  ... and {fix.products.length - 3} more
+                                </Text>
+                              )}
+                            </BlockStack>
+                          </BlockStack>
+                        )}
+                        <InlineStack gap="200">
+                          {fix.type.includes("SEO") && (
+                            <Button size="slim" onClick={() => navigate("/app/seo")}>
+                              Fix SEO
+                            </Button>
+                          )}
+                          {fix.type.includes("Description") && (
+                            <Button size="slim" onClick={() => navigate("/app/descriptions")}>
+                              Fix Descriptions
+                            </Button>
+                          )}
+                          {fix.type.includes("Alt Text") && (
+                            <Button size="slim" onClick={handleGenerateAltText} variant="primary">
+                              Manage Products
+                            </Button>
+                          )}
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              )}
             </BlockStack>
           </Card>
         )}
@@ -477,14 +502,25 @@ export default function SeoAudit() {
           open={!!selectedProductIssues}
           onClose={() => setSelectedProductIssues(null)}
           title={`Issues - ${selectedProductIssues.title}`}
-          primaryAction={{
+          primaryAction={isFree ? {
+            content: "View Plans",
+            onAction: () => navigate("/app/plans"),
+          } : {
             content: "Close",
             onAction: () => setSelectedProductIssues(null),
           }}
+          secondaryActions={isFree ? [{
+            content: "Close",
+            onAction: () => setSelectedProductIssues(null),
+          }] : []}
         >
           <Modal.Section>
             <BlockStack gap="400">
-              {selectedProductIssues.audit.issues.length === 0 ? (
+              {isFree ? (
+                <Banner tone="info" title="Specific Details Locked">
+                  <p>Issue details and how to fix them are available on Pro and Elite plans. Upgrade to see exactly what to fix.</p>
+                </Banner>
+              ) : selectedProductIssues.audit.issues.length === 0 ? (
                 <Text>No issues found!</Text>
               ) : (
                 <BlockStack gap="300">
@@ -523,46 +559,48 @@ export default function SeoAudit() {
               )}
 
               {/* Quick Actions */}
-              <Box paddingBlockStart="300" borderBlockStart="1px solid #e5e7eb">
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued">Quick actions:</Text>
-                  <InlineStack gap="200">
-                    {selectedProductIssues.audit.issues.some((i) => i.msg.includes("SEO") || i.msg.includes("title") || i.msg.includes("description")) && (
-                      <Button
-                        size="slim"
-                        onClick={() => {
-                          navigate(`/app/seo?productId=${selectedProductIssues.id}`);
-                          setSelectedProductIssues(null);
-                        }}
-                      >
-                        Fix SEO
-                      </Button>
-                    )}
-                    {selectedProductIssues.audit.issues.some((i) => i.msg.includes("description") && i.msg.includes("brief")) && (
-                      <Button
-                        size="slim"
-                        onClick={() => {
-                          navigate(`/app/descriptions?productId=${selectedProductIssues.id}`);
-                          setSelectedProductIssues(null);
-                        }}
-                      >
-                        Fix Description
-                      </Button>
-                    )}
-                    {selectedProductIssues.audit.issues.some((i) => i.msg.includes("alt text") || i.msg.includes("image")) && (
-                      <Button
-                        size="slim"
-                        onClick={() => {
-                          navigate(`/app/products?productId=${selectedProductIssues.id}`);
-                          setSelectedProductIssues(null);
-                        }}
-                      >
-                        Fix Images
-                      </Button>
-                    )}
-                  </InlineStack>
-                </BlockStack>
-              </Box>
+              {!isFree && (
+                <Box paddingBlockStart="300" borderBlockStart="1px solid #e5e7eb">
+                  <BlockStack gap="200">
+                    <Text variant="bodySm" tone="subdued">Quick actions:</Text>
+                    <InlineStack gap="200">
+                      {selectedProductIssues.audit.issues.some((i) => i.msg.includes("SEO") || i.msg.includes("title") || i.msg.includes("description")) && (
+                        <Button
+                          size="slim"
+                          onClick={() => {
+                            navigate(`/app/seo?productId=${selectedProductIssues.id}`);
+                            setSelectedProductIssues(null);
+                          }}
+                        >
+                          Fix SEO
+                        </Button>
+                      )}
+                      {selectedProductIssues.audit.issues.some((i) => i.msg.includes("description") && i.msg.includes("brief")) && (
+                        <Button
+                          size="slim"
+                          onClick={() => {
+                            navigate(`/app/descriptions?productId=${selectedProductIssues.id}`);
+                            setSelectedProductIssues(null);
+                          }}
+                        >
+                          Fix Description
+                        </Button>
+                      )}
+                      {selectedProductIssues.audit.issues.some((i) => i.msg.includes("alt text") || i.msg.includes("image")) && (
+                        <Button
+                          size="slim"
+                          onClick={() => {
+                            navigate(`/app/products?productId=${selectedProductIssues.id}`);
+                            setSelectedProductIssues(null);
+                          }}
+                        >
+                          Fix Images
+                        </Button>
+                      )}
+                    </InlineStack>
+                  </BlockStack>
+                </Box>
+              )}
             </BlockStack>
           </Modal.Section>
         </Modal>

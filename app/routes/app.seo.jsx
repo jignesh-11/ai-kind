@@ -1,10 +1,10 @@
 import {
   Page, Layout, Text, Card, Button, BlockStack, Box,
-  TextField, InlineStack, IndexTable, Thumbnail, Banner, Badge, ProgressBar
+  TextField, InlineStack, IndexTable, Thumbnail, Banner, Badge, ProgressBar, Tooltip
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { ArrowLeftIcon, ClockIcon } from "@shopify/polaris-icons";
+import { ArrowLeftIcon, ClockIcon, StarIcon } from "@shopify/polaris-icons";
 import { useState, useEffect } from "react";
 import { json } from "@remix-run/node";
 import { useActionData, useNavigation, useSubmit, useLoaderData, useNavigate } from "@remix-run/react";
@@ -12,6 +12,7 @@ import { generateJsonSafe } from "../gemini.server";
 import { checkAndChargeUsage } from "../billing.server";
 import prisma from "../db.server";
 import { Modal } from "@shopify/polaris";
+import { FREE_PLAN, PLAN_CONFIG } from "../constants";
 
 const SEO_SCHEMA = {
   type: "object",
@@ -50,12 +51,17 @@ export const loader = async ({ request }) => {
   const paginatedProducts = allProducts.slice(startIdx, startIdx + perPage);
 
   const usage = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
+  const planName = usage?.planName || FREE_PLAN;
+  const planConfig = PLAN_CONFIG[planName] || PLAN_CONFIG[FREE_PLAN];
 
   return json({
     apiKey:   process.env.SHOPIFY_API_KEY || "",
     allProducts, // Return all products for searching
     products: paginatedProducts,
     credits:  usage?.credits || 0,
+    usageCount: usage?.monthlyUsageCount || 0,
+    planName,
+    totalCredits: planConfig.credits,
     pagination: {
       currentPage,
       totalPages,
@@ -220,7 +226,7 @@ CRITICAL RULES - MUST FOLLOW:
 function SerpPreview({ title, description, shopDomain }) {
   const displayTitle = title || "Product Title";
   const displayDesc  = description || "Product meta description will appear here…";
-  const displayUrl   = shopDomain ? `${shopDomain}/products/example` : "yourstore.myshopify.com/products/example";
+  const displayUrl   = shopDomain ? `${displayUrl}/products/example` : "yourstore.myshopify.com/products/example";
 
   const titleColor   = title?.length > 60 ? "#cc0000" : "#1a0dab";
   const titleDisplay = title ? title.slice(0, 60) + (title.length > 60 ? "…" : "") : displayTitle;
@@ -267,6 +273,9 @@ export default function SeoGenerator() {
   const navigate    = useNavigate();
   const submit      = useSubmit();
   const shopify     = useAppBridge();
+
+  const { planName, usageCount, totalCredits } = loaderData || {};
+  const progress = totalCredits === 999999 ? 100 : Math.min(100, (usageCount / totalCredits) * 100);
 
   const [productId, setProductId] = useState("");
   const [productTitle, setProductTitle] = useState("");
@@ -389,7 +398,24 @@ export default function SeoGenerator() {
 
   return (
     <Page>
-      <TitleBar title="AI SEO Generator" />
+      <TitleBar title="AI SEO Generator">
+        <InlineStack gap="300" align="end" blockAlign="center">
+          <Box paddingInlineEnd="300">
+            <BlockStack gap="100" align="end">
+              <InlineStack gap="100">
+                <Text variant="bodySm" tone="subdued">Credits:</Text>
+                <Text variant="bodySm" fontWeight="bold">
+                  {`${usageCount} / ${totalCredits === 999999 ? 'Unlimited' : totalCredits}`}
+                </Text>
+              </InlineStack>
+              <div style={{ width: '100px' }}>
+                <ProgressBar progress={progress} tone={progress > 90 ? "critical" : "primary"} size="small" />
+              </div>
+            </BlockStack>
+          </Box>
+          <Button onClick={() => navigate("/app/plans")} icon={StarIcon} size="slim">Upgrade</Button>
+        </InlineStack>
+      </TitleBar>
       <BlockStack gap="500">
         <Layout>
           <Layout.Section>
@@ -597,8 +623,8 @@ export default function SeoGenerator() {
                   {loaderData?.pagination && (
                     <InlineStack gap="400" align="center" blockAlign="center">
                       <Button
-                        onClick={() => navigate(`?page=${loaderData.pagination.currentPage - 1}`)}
-                        disabled={loaderData.pagination.currentPage <= 1}
+                        onClick={() => navigate(`?page=${pagination.currentPage - 1}`)}
+                        disabled={pagination.currentPage <= 1}
                       >
                         ← Previous
                       </Button>
@@ -606,8 +632,8 @@ export default function SeoGenerator() {
                         Page {loaderData.pagination.currentPage} of {loaderData.pagination.totalPages} ({loaderData.pagination.totalProducts} products)
                       </Text>
                       <Button
-                        onClick={() => navigate(`?page=${loaderData.pagination.currentPage + 1}`)}
-                        disabled={loaderData.pagination.currentPage >= loaderData.pagination.totalPages}
+                        onClick={() => navigate(`?page=${pagination.currentPage + 1}`)}
+                        disabled={pagination.currentPage >= loaderData.pagination.totalPages}
                       >
                         Next →
                       </Button>
