@@ -8,7 +8,8 @@ import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { generateAuditPDF, logAuditExport } from "../pdf.server";
-import { checkAndChargeUsage, PLAN_CONFIG } from "../billing.server";
+import { checkAndChargeUsage } from "../billing.server";
+import { PLAN_CONFIG } from "../constants";
 import prisma from "../db.server";
 
 /**

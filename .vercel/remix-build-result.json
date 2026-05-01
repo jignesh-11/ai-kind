@@ -17,8 +17,8 @@
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/privacy": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.generate": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.descriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.api.alttext": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -94,20 +94,20 @@
           "runtime": "nodejs"
         }
       },
-      "routes/auth.$": {
-        "id": "routes/auth.$",
-        "parentId": "root",
-        "file": "app/routes/auth.$.jsx",
-        "path": "auth/*",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/_index": {
         "id": "routes/_index",
         "parentId": "root",
         "file": "app/routes/_index/route.jsx",
         "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/auth.$": {
+        "id": "routes/auth.$",
+        "parentId": "root",
+        "file": "app/routes/auth.$.jsx",
+        "path": "auth/*",
         "config": {
           "runtime": "nodejs"
         }
@@ -212,9 +212,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "C:\\Users\\jigne\\Neh\\live-seo-desc\\app",
+    "appDirectory": "/var/www/html/test-app/jignesh-bpe/app",
     "basename": "/",
-    "buildDirectory": "C:\\Users\\jigne\\Neh\\live-seo-desc\\build",
+    "buildDirectory": "/var/www/html/test-app/jignesh-bpe/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,
@@ -274,17 +274,17 @@
         "file": "routes/privacy.jsx",
         "path": "privacy"
       },
-      "routes/auth.$": {
-        "id": "routes/auth.$",
-        "parentId": "root",
-        "file": "routes/auth.$.jsx",
-        "path": "auth/*"
-      },
       "routes/_index": {
         "id": "routes/_index",
         "parentId": "root",
         "file": "routes/_index/route.jsx",
         "index": true
+      },
+      "routes/auth.$": {
+        "id": "routes/auth.$",
+        "parentId": "root",
+        "file": "routes/auth.$.jsx",
+        "path": "auth/*"
       },
       "routes/app": {
         "id": "routes/app",
