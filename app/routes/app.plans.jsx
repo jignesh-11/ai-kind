@@ -106,10 +106,12 @@ export const action = async ({ request }) => {
 
     if (planName === PRO_PLAN || planName === ELITE_PLAN) {
         const appUrl = process.env.SHOPIFY_APP_URL || new URL(request.url).origin;
+        const cleanAppUrl = appUrl.replace(/\/$/, "");
+        
         return await billing.request({
             plan: planName,
             isTest: isTest,
-            returnUrl: `${appUrl}/app/plans`,
+            returnUrl: `${cleanAppUrl}/app/plans?shop=${session.shop}`,
         });
     }
 
