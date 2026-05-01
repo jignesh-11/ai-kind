@@ -209,7 +209,8 @@ export default function Plans() {
         submit({ planName }, { method: "post" });
     };
 
-    const isLoading = navigation.state === "submitting";
+    const isSubmitting = navigation.state === "submitting";
+    const submittingPlan = navigation.formData?.get("planName");
 
     return (
         <Page>
@@ -236,7 +237,7 @@ export default function Plans() {
                                 features={["20 AI Generations", "Product Descriptions", "SEO Meta Tags", "Basic Support"]}
                                 isCurrent={currentPlan === FREE_PLAN}
                                 onSelect={handleSelectPlan}
-                                loading={isLoading}
+                                loading={isSubmitting && submittingPlan === FREE_PLAN}
                             />
                             <PlanCard
                                 name={PRO_PLAN}
@@ -245,7 +246,7 @@ export default function Plans() {
                                 features={["500 AI Generations", "Image Alt Text Generation", "SEO Health Audit PDFs", "Brand Voice Profiles"]}
                                 isCurrent={currentPlan === PRO_PLAN}
                                 onSelect={handleSelectPlan}
-                                loading={isLoading}
+                                loading={isSubmitting && submittingPlan === PRO_PLAN}
                             />
                             <PlanCard
                                 name={ELITE_PLAN}
@@ -254,7 +255,7 @@ export default function Plans() {
                                 features={["Unlimited AI Generations", "Bulk Optimization Mode", "Priority 24/7 Support", "Early Feature Access"]}
                                 isCurrent={currentPlan === ELITE_PLAN}
                                 onSelect={handleSelectPlan}
-                                loading={isLoading}
+                                loading={isSubmitting && submittingPlan === ELITE_PLAN}
                                 isPopular
                             />
                         </InlineGrid>
