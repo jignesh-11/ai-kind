@@ -8,11 +8,11 @@ import {
   InlineStack, 
   Button, 
   Box, 
-  Grid, 
   Badge, 
   ProgressBar, 
   Icon, 
   Divider,
+  InlineGrid,
   Banner
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
@@ -21,7 +21,8 @@ import {
   MagicIcon, 
   CheckCircleIcon, 
   StarIcon, 
-  ImageIcon 
+  ImageIcon,
+  ChevronRightIcon
 } from "@shopify/polaris-icons";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
@@ -44,25 +45,30 @@ export const loader = async ({ request }) => {
   });
 };
 
-function ToolCard({ title, description, icon, onAction, isPro }) {
+function FeatureItem({ title, description, icon, onAction, isPro }) {
   return (
-    <Card>
-      <BlockStack gap="400">
-        <InlineStack align="space-between" blockAlign="center">
-          <InlineStack gap="300">
+    <Box 
+      as="div" 
+      padding="400" 
+      onClick={onAction}
+      style={{ cursor: 'pointer', borderBottom: '1px solid var(--p-color-border-subdued)' }}
+    >
+      <InlineStack gap="400" align="space-between" blockAlign="center">
+        <InlineStack gap="400" blockAlign="center">
+          <Box background="bg-surface-secondary" padding="300" borderRadius="200">
             <Icon source={icon} tone="base" />
-            <Text variant="headingMd" as="h3">{title}</Text>
-          </InlineStack>
-          {isPro && <Badge tone="warning">PRO</Badge>}
+          </Box>
+          <BlockStack gap="100">
+            <InlineStack gap="200" blockAlign="center">
+              <Text variant="headingMd" as="h3">{title}</Text>
+              {isPro && <Badge tone="warning">PRO</Badge>}
+            </InlineStack>
+            <Text variant="bodyMd" tone="subdued">{description}</Text>
+          </BlockStack>
         </InlineStack>
-        <div style={{ minHeight: '40px' }}>
-          <Text variant="bodyMd" tone="subdued">{description}</Text>
-        </div>
-        <InlineStack align="end">
-          <Button onClick={onAction} variant="primary" size="slim">Get Started</Button>
-        </InlineStack>
-      </BlockStack>
-    </Card>
+        <Icon source={ChevronRightIcon} tone="subdued" />
+      </InlineStack>
+    </Box>
   );
 }
 
@@ -90,106 +96,96 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <Page title="Dashboard">
-      <TitleBar title="CopySpark AI" />
+    <Page>
+      <TitleBar title="CopySpark AI Home" />
       <BlockStack gap="600">
         
-        {isFree && (
-          <Banner
-            title="Early Bird Offer: 50% Off Pro Plan"
-            tone="info"
-            action={{
-              content: 'View Plans',
-              onAction: () => navigate("/app/plans"),
-            }}
-          >
-            <p>Upgrade now to unlock Image Alt Text generation and SEO Health Audit reports.</p>
-          </Banner>
-        )}
+        <InlineStack align="space-between" blockAlign="end">
+          <BlockStack gap="100">
+            <Text variant="heading2xl" as="h1">Dashboard</Text>
+            <Text variant="bodyLg" tone="subdued">Optimize your store's SEO and content with AI.</Text>
+          </BlockStack>
+          <Button onClick={() => navigate("/app/plans")} icon={StarIcon} variant="primary">
+            {isFree ? "Upgrade Plan" : "Manage Plan"}
+          </Button>
+        </InlineStack>
+
+        <InlineGrid columns={{ xs: 1, md: 3 }} gap="400">
+          <Card>
+            <BlockStack gap="200">
+              <Text variant="bodyMd" tone="subdued">AI Descriptions</Text>
+              <Text variant="headingXl" as="p">{descriptionsGenerated}</Text>
+            </BlockStack>
+          </Card>
+          <Card>
+            <BlockStack gap="200">
+              <Text variant="bodyMd" tone="subdued">SEO Optimizations</Text>
+              <Text variant="headingXl" as="p">{seoGenerated}</Text>
+            </BlockStack>
+          </Card>
+          <Card>
+            <BlockStack gap="200">
+              <InlineStack align="space-between" blockAlign="center">
+                <Text variant="bodyMd" tone="subdued">Usage Limit</Text>
+                <Badge tone="info">{planName}</Badge>
+              </InlineStack>
+              <BlockStack gap="200">
+                <Text variant="headingLg" as="p">
+                  {usageCount} <Text variant="bodyMd" as="span" tone="subdued">/ {totalCredits === 999999 ? "∞" : totalCredits}</Text>
+                </Text>
+                <ProgressBar progress={progress} tone={progress > 85 ? "critical" : "primary"} size="small" />
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </InlineGrid>
 
         <Layout>
-          {/* Optimization Tools */}
           <Layout.Section>
-            <BlockStack gap="400">
-              <Text variant="headingLg" as="h2">Optimization Tools</Text>
-              <Grid>
-                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                  <ToolCard 
-                    title="Descriptions"
-                    description="Rewrite product descriptions with high-converting AI prompts."
-                    icon={MagicIcon}
-                    onAction={() => navigate("/app/descriptions")}
-                  />
-                </Grid.Cell>
-                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                  <ToolCard 
-                    title="SEO Tags"
-                    description="Generate optimized titles and meta tags for search rankings."
-                    icon={SearchIcon}
-                    onAction={() => navigate("/app/seo")}
-                  />
-                </Grid.Cell>
-                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                  <ToolCard 
-                    title="SEO Audit"
-                    description="Scan your entire store for missing SEO tags and health issues."
-                    icon={CheckCircleIcon}
-                    onAction={() => navigate("/app/audit")}
-                    isPro={isFree}
-                  />
-                </Grid.Cell>
-                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                  <ToolCard 
-                    title="Alt Text"
-                    description="Auto-generate SEO alt text for your product images."
-                    icon={ImageIcon}
-                    onAction={() => navigate("/app/products")}
-                    isPro={isFree}
-                  />
-                </Grid.Cell>
-              </Grid>
-            </BlockStack>
+            <Card padding="0">
+              <BlockStack>
+                <FeatureItem 
+                  title="Product Descriptions"
+                  description="Rewrite descriptions with high-converting AI prompts."
+                  icon={MagicIcon}
+                  onAction={() => navigate("/app/descriptions")}
+                />
+                <FeatureItem 
+                  title="SEO Meta Tags"
+                  description="Generate optimized titles and descriptions for search."
+                  icon={SearchIcon}
+                  onAction={() => navigate("/app/seo")}
+                />
+                <FeatureItem 
+                  title="Site-Wide SEO Audit"
+                  description="Scan your store and download health reports."
+                  icon={CheckCircleIcon}
+                  isPro={isFree}
+                  onAction={() => navigate("/app/audit")}
+                />
+                <FeatureItem 
+                  title="Image Alt Text"
+                  description="Improve rankings with AI image alt text."
+                  icon={ImageIcon}
+                  isPro={isFree}
+                  onAction={() => navigate("/app/products")}
+                  style={{ borderBottom: 'none' }}
+                />
+              </BlockStack>
+            </Card>
           </Layout.Section>
 
-          {/* Sidebar */}
           <Layout.Section variant="oneThird">
             <BlockStack gap="400">
+              {isFree && (
+                <Banner title="Early Bird Special" tone="info" action={{content: 'Upgrade', onAction: () => navigate("/app/plans")}}>
+                  <p>Unlock all features with 50% off Pro!</p>
+                </Banner>
+              )}
               <Card>
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h3">Account Status</Text>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between">
-                      <Text variant="bodySm" tone="subdued">Current Plan</Text>
-                      <Badge tone="info">{planName}</Badge>
-                    </InlineStack>
-                    <Divider />
-                    <BlockStack gap="100">
-                      <InlineStack align="space-between">
-                        <Text variant="bodySm" tone="subdued">Usage (Monthly)</Text>
-                        <Text variant="bodySm" fontWeight="bold">
-                          {usageCount} / {totalCredits === 999999 ? "∞" : totalCredits}
-                        </Text>
-                      </InlineStack>
-                      <ProgressBar progress={progress} tone={progress > 90 ? "critical" : "primary"} size="small" />
-                    </BlockStack>
-                  </BlockStack>
-                  <Button fullWidth onClick={() => navigate("/app/plans")}>Manage Subscription</Button>
-                </BlockStack>
-              </Card>
-
-              <Card>
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h3">Lifetime Impact</Text>
-                  <BlockStack gap="200">
-                    <InlineStack align="space-between">
-                      <Text variant="bodyMd" tone="subdued">AI Descriptions</Text>
-                      <Text variant="bodyMd" fontWeight="bold">{descriptionsGenerated}</Text>
-                    </InlineStack>
-                    <InlineStack align="space-between">
-                      <Text variant="bodyMd" tone="subdued">SEO Tags</Text>
-                      <Text variant="bodyMd" fontWeight="bold">{seoGenerated}</Text>
-                    </InlineStack>
-                  </BlockStack>
+                  <Text variant="headingMd" as="h3">Support</Text>
+                  <Text variant="bodyMd" tone="subdued">Need help? Our AI experts are available 24/7.</Text>
+                  <Button variant="secondary" onClick={() => window.open('mailto:support@copyspark.ai')}>Email Us</Button>
                 </BlockStack>
               </Card>
             </BlockStack>
