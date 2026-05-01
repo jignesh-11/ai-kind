@@ -30,11 +30,11 @@ export const loader = async ({ request }) => {
         where: { shop: session.shop }
     });
 
-    const isDevelopmentStore = session.shop.includes('.myshopify.com');
+    const isTest = process.env.NODE_ENV !== 'production';
 
     const billingCheck = await billing.check({
         plans: [PRO_PLAN, ELITE_PLAN],
-        isTest: isDevelopmentStore,
+        isTest: isTest,
     });
 
     return json({
@@ -50,13 +50,13 @@ export const action = async ({ request }) => {
     const { admin, billing, session } = await authenticate.admin(request);
     const formData = await request.formData();
     const planName = formData.get("planName");
-    const isDevelopmentStore = session.shop.includes('.myshopify.com');
+    const isTest = process.env.NODE_ENV !== 'production';
 
     if (planName === FREE_PLAN) {
         // Cancel existing subscriptions if any
         const billingCheck = await billing.check({
             plans: [PRO_PLAN, ELITE_PLAN],
-            isTest: isDevelopmentStore,
+            isTest: isTest,
         });
 
         if (billingCheck.hasActivePayment) {
@@ -84,8 +84,8 @@ export const action = async ({ request }) => {
     if (planName === PRO_PLAN || planName === ELITE_PLAN) {
         return await billing.request({
             plan: planName,
-            isTest: isDevelopmentStore,
-            returnUrl: `https://${new URL(request.url).hostname}/app/plans?shop=${session.shop}`,
+            isTest: isTest,
+            returnUrl: "/app/plans",
         });
     }
 
