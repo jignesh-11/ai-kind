@@ -82,10 +82,11 @@ export const action = async ({ request }) => {
     }
 
     if (planName === PRO_PLAN || planName === ELITE_PLAN) {
+        const origin = new URL(request.url).origin;
         return await billing.request({
             plan: planName,
             isTest: isTest,
-            returnUrl: "/app/plans",
+            returnUrl: `${origin}/app/plans`,
         });
     }
 
