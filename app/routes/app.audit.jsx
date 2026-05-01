@@ -45,6 +45,7 @@ function computeRecommendedFixes(products) {
       }
     });
   });
+  // test
 
   return Array.from(fixes.entries())
     .map(([type, data]) => ({
