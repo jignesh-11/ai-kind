@@ -1,15 +1,22 @@
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
-import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer } from "@shopify/polaris";
+import { Page, Card, Button, BlockStack, InlineStack, Text, Badge, Box, Grid, TextField, Select, Modal, TextContainer, Banner, Icon } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { useState } from "react";
+import prisma from "../db.server";
+import { FREE_PLAN } from "../constants";
+import { LockIcon } from "@shopify/polaris-icons";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1", 10);
   const perPage = 20;
+
+  const usage = await prisma.usageStat.findUnique({ where: { shop: session.shop } });
+  const planName = usage?.planName || FREE_PLAN;
+  const isFree = planName === FREE_PLAN;
 
   const response = await admin.graphql(
     `#graphql
@@ -61,6 +68,7 @@ export const loader = async ({ request }) => {
 
   return json({
     products: paginatedProducts,
+    isFree,
     pagination: {
       currentPage,
       totalPages,
@@ -71,7 +79,7 @@ export const loader = async ({ request }) => {
 };
 
 export default function ProductsPage() {
-  const { products, pagination } = useLoaderData();
+  const { products, pagination, isFree } = useLoaderData();
   const shopify = useAppBridge();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,6 +103,10 @@ export default function ProductsPage() {
   });
 
   const handleGenerateAltText = async (productId) => {
+    if (isFree) {
+      navigate("/app/plans");
+      return;
+    }
     setIsGenerating(true);
     try {
       const product = products.find(p => p.id === productId);
@@ -271,9 +283,10 @@ export default function ProductsPage() {
                             <Button
                               size="slim"
                               variant="primary"
-                              onClick={() => setSelectedProduct(product)}
+                              onClick={() => isFree ? navigate("/app/plans") : setSelectedProduct(product)}
+                              icon={isFree ? LockIcon : undefined}
                             >
-                              Generate Alt Text
+                              {isFree ? "Upgrade to Generate" : "Generate Alt Text"}
                             </Button>
                           )}
                           <Button
@@ -315,7 +328,7 @@ export default function ProductsPage() {
       </BlockStack>
 
       {/* ── Generate Alt Text Modal ── */}
-      {selectedProduct && (
+      {selectedProduct && !isFree && (
         <Modal
           open={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
@@ -353,9 +366,19 @@ export default function ProductsPage() {
           onClose={() => setDetailedProduct(null)}
           title={detailedProduct.title}
           large
+          primaryAction={isFree && detailedProduct.imagesWithoutAlt > 0 ? {
+            content: "Upgrade to Fix",
+            onAction: () => navigate("/app/plans"),
+          } : undefined}
         >
           <Modal.Section>
             <BlockStack gap="400">
+              {isFree && detailedProduct.imagesWithoutAlt > 0 && (
+                <Banner tone="info" title="Alt Text Generation is Locked">
+                  <p>Upgrade to a Pro or Elite plan to automatically generate SEO-friendly alt text for all images in this product.</p>
+                </Banner>
+              )}
+
               <InlineStack gap="300" wrap>
                 <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                   <BlockStack gap="100">
@@ -373,7 +396,7 @@ export default function ProductsPage() {
                 </Box>
               </InlineStack>
 
-              {detailedProduct.hasImages && detailedProduct.imagesWithoutAlt > 0 && (
+              {detailedProduct.hasImages && detailedProduct.imagesWithoutAlt > 0 && !isFree && (
                 <Button
                   variant="primary"
                   fullWidth

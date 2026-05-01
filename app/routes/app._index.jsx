@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, Grid, List, Badge, ProgressBar } from "@shopify/polaris";
+import { Page, Layout, Card, Text, BlockStack, InlineStack, Button, Box, Grid, List, Badge, ProgressBar, Icon } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
-import { SearchIcon, MagicIcon, CheckCircleIcon, StarIcon } from "@shopify/polaris-icons";
+import { SearchIcon, MagicIcon, CheckCircleIcon, StarIcon, ImageIcon } from "@shopify/polaris-icons";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const { descriptionsGenerated, seoGenerated, planName, usageCount } = useLoaderData() || {};
   const navigate = useNavigate();
 
+  const isFree = planName === FREE_PLAN;
   const currentPlanConfig = PLAN_CONFIG[planName] || PLAN_CONFIG[FREE_PLAN];
   const totalCredits = currentPlanConfig.credits;
   const progress = totalCredits === 999999 ? 100 : Math.min(100, (usageCount / totalCredits) * 100);
@@ -93,7 +94,7 @@ export default function Dashboard() {
 
           <Layout.Section>
             <Grid>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
                 <Card>
                   <BlockStack gap="400">
                     <InlineStack gap="400" align="start" blockAlign="center">
@@ -112,7 +113,7 @@ export default function Dashboard() {
                 </Card>
               </Grid.Cell>
 
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
                 <Card>
                   <BlockStack gap="400">
                     <InlineStack gap="400" align="start" blockAlign="center">
@@ -131,20 +132,45 @@ export default function Dashboard() {
                 </Card>
               </Grid.Cell>
 
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
                 <Card>
                   <BlockStack gap="400">
-                    <InlineStack gap="400" align="start" blockAlign="center">
-                      <Box background="bg-surface-warning" padding="200" borderRadius="200">
-                        <CheckCircleIcon width={30} />
-                      </Box>
-                      <Text as="h2" variant="headingMd">SEO Audit</Text>
+                    <InlineStack align="space-between" blockAlign="center">
+                      <InlineStack gap="400" align="start" blockAlign="center">
+                        <Box background="bg-surface-warning" padding="200" borderRadius="200">
+                          <CheckCircleIcon width={30} />
+                        </Box>
+                        <Text as="h2" variant="headingMd">SEO Audit</Text>
+                      </InlineStack>
+                      {isFree && <Badge tone="warning">PRO</Badge>}
                     </InlineStack>
                     <Text as="p" variant="bodySm" tone="subdued">
                       Scan your store and generate PDF health reports.
                     </Text>
                     <InlineStack align="end">
                       <Button onClick={() => navigate("/app/audit")} variant="primary" size="slim">Run</Button>
+                    </InlineStack>
+                  </BlockStack>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+                <Card>
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <InlineStack gap="400" align="start" blockAlign="center">
+                        <Box background="bg-surface-critical" padding="200" borderRadius="200">
+                          <ImageIcon width={30} />
+                        </Box>
+                        <Text as="h2" variant="headingMd">Alt Text</Text>
+                      </InlineStack>
+                      {isFree && <Badge tone="warning">PRO</Badge>}
+                    </InlineStack>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Improve accessibility with AI image alt text.
+                    </Text>
+                    <InlineStack align="end">
+                      <Button onClick={() => navigate("/app/products")} variant="primary" size="slim">Open</Button>
                     </InlineStack>
                   </BlockStack>
                 </Card>

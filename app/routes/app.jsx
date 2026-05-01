@@ -28,6 +28,7 @@ export default function App() {
         <Link to="/app/descriptions">Product Descriptions</Link>
         <Link to="/app/seo">SEO Generator</Link>
         <Link to="/app/audit">SEO Audit</Link>
+        <Link to="/app/plans">Plans & Billing</Link>
       </NavMenu>
       <Outlet />
       <SupportWidget defaultOpen={isNewInstall} />
