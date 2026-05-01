@@ -16,7 +16,7 @@ import {
     Banner,
     Badge,
 } from "@shopify/polaris";
-import { CheckIcon, StarIcon, DiamondIcon } from "@shopify/polaris-icons";
+import { CheckIcon, StarIcon, StarFilledIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { FREE_PLAN, PRO_PLAN, ELITE_PLAN, PLAN_CONFIG } from "../constants";
@@ -149,7 +149,7 @@ function PlanCard({ name, price, credits, features, isCurrent, onSelect, loading
                             <InlineStack align="space-between" blockAlign="center">
                                 <Text variant="headingMd" as="h3">{name}</Text>
                                 {isPopular && (
-                                    <Badge tone="info" icon={DiamondIcon}>Best Value</Badge>
+                                    <Badge tone="info" icon={StarFilledIcon}>Best Value</Badge>
                                 )}
                                 {!isPopular && name !== FREE_PLAN && (
                                     <Badge tone="warning" icon={StarIcon}>Special</Badge>
