@@ -14,10 +14,9 @@ import {
     InlineStack,
     Icon,
     Banner,
-    List,
     Badge,
 } from "@shopify/polaris";
-import { CheckIcon, StarIcon } from "@shopify/polaris-icons";
+import { CheckIcon, StarIcon, DiamondIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { FREE_PLAN, PRO_PLAN, ELITE_PLAN, PLAN_CONFIG } from "../constants";
@@ -25,10 +24,6 @@ import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
     const { session, billing, admin } = await authenticate.admin(request);
-
-    const usage = await prisma.usageStat.findUnique({
-        where: { shop: session.shop }
-    });
 
     const shopResponse = await admin.graphql(
         `#graphql
@@ -47,6 +42,26 @@ export const loader = async ({ request }) => {
         plans: [PRO_PLAN, ELITE_PLAN],
         isTest: isTest,
     });
+
+    let usage = await prisma.usageStat.findUnique({
+        where: { shop: session.shop }
+    });
+
+    // Proactive Sync: If Shopify has an active payment but our DB doesn't match, update DB
+    if (billingCheck.hasActivePayment) {
+        const activeSubscription = billingCheck.appSubscriptions[0];
+        if (usage && usage.planName !== activeSubscription.name) {
+            console.log(`[Billing Sync] Updating ${session.shop} to ${activeSubscription.name}`);
+            usage = await prisma.usageStat.update({
+                where: { shop: session.shop },
+                data: { 
+                    planName: activeSubscription.name,
+                    planStatus: 'ACTIVE',
+                    credits: Math.max(usage.credits, PLAN_CONFIG[activeSubscription.name].credits)
+                }
+            });
+        }
+    }
 
     return json({
         usageCount: usage?.monthlyUsageCount || 0,
@@ -76,7 +91,6 @@ export const action = async ({ request }) => {
     const isTest = process.env.NODE_ENV !== 'production' || shopEmail === 'jigneshdhandhukiya63@gmail.com';
 
     if (planName === FREE_PLAN) {
-        // Cancel existing subscriptions if any
         const billingCheck = await billing.check({
             plans: [PRO_PLAN, ELITE_PLAN],
             isTest: isTest,
@@ -105,7 +119,6 @@ export const action = async ({ request }) => {
     }
 
     if (planName === PRO_PLAN || planName === ELITE_PLAN) {
-        // Redirect directly to the embedded Shopify Admin URL
         const shopName = session.shop.replace(".myshopify.com", "");
         const appHandle = "copyspark-ai-seo-description";
         const returnUrl = `https://admin.shopify.com/store/${shopName}/apps/${appHandle}/app/plans`;
@@ -120,41 +133,69 @@ export const action = async ({ request }) => {
     return json({ error: "Invalid plan" }, { status: 400 });
 };
 
-function PlanCard({ name, price, credits, features, isCurrent, onSelect, loading, isSpecial }) {
+function PlanCard({ name, price, credits, features, isCurrent, onSelect, loading, isPopular }) {
     return (
-        <Card background={isCurrent ? "bg-surface-secondary" : "bg-surface"}>
-            <BlockStack gap="400">
-                <BlockStack gap="100">
-                    <InlineStack align="space-between">
-                        <Text variant="headingMd" as="h3">{name}</Text>
-                        {isSpecial && <Badge tone="warning" icon={StarIcon}>Launch Special</Badge>}
-                    </InlineStack>
-                    <Text variant="headingLg" as="p">${price}<Text variant="bodySm" as="span" tone="subdued">/mo</Text></Text>
-                </BlockStack>
-                <Divider />
-                <BlockStack gap="200">
-                    <Text variant="bodyMd" fontWeight="bold">{credits === 999999 ? 'Unlimited' : credits} Credits</Text>
-                    <List>
-                        {features.map((feature, index) => (
-                            <List.Item key={index}>
-                                <InlineStack gap="200">
-                                    <Icon source={CheckIcon} tone="success" />
-                                    <Text variant="bodySm">{feature}</Text>
-                                </InlineStack>
-                            </List.Item>
-                        ))}
-                    </List>
-                </BlockStack>
-                <Button
-                    variant={isCurrent ? "secondary" : "primary"}
-                    disabled={isCurrent}
-                    loading={loading}
-                    onClick={() => onSelect(name)}
-                >
-                    {isCurrent ? "Current Plan" : "Select Plan"}
-                </Button>
-            </BlockStack>
-        </Card>
+        <Box 
+            style={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column' 
+            }}
+        >
+            <Card background={isPopular ? "bg-surface-info-subdued" : "bg-surface"}>
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '420px' }}>
+                    <BlockStack gap="400">
+                        <BlockStack gap="100">
+                            <InlineStack align="space-between" blockAlign="center">
+                                <Text variant="headingMd" as="h3">{name}</Text>
+                                {isPopular && (
+                                    <Badge tone="info" icon={DiamondIcon}>Best Value</Badge>
+                                )}
+                                {!isPopular && name !== FREE_PLAN && (
+                                    <Badge tone="warning" icon={StarIcon}>Special</Badge>
+                                )}
+                            </InlineStack>
+                            <Text variant="heading2xl" as="p">
+                                ${price}
+                                <Text variant="bodySm" as="span" tone="subdued">/month</Text>
+                            </Text>
+                        </BlockStack>
+                        
+                        <Divider />
+                        
+                        <BlockStack gap="300">
+                            <Text variant="bodyMd" fontWeight="bold">
+                                {credits === 999999 ? 'Unlimited' : credits} AI Credits
+                            </Text>
+                            <BlockStack gap="200">
+                                {features.map((feature, index) => (
+                                    <InlineStack gap="200" key={index} align="start" blockAlign="start">
+                                        <div style={{ marginTop: '2px' }}>
+                                            <Icon source={CheckIcon} tone="success" />
+                                        </div>
+                                        <Text variant="bodySm" as="span">{feature}</Text>
+                                    </InlineStack>
+                                ))}
+                            </BlockStack>
+                        </BlockStack>
+                    </BlockStack>
+
+                    <div style={{ flex: 1 }} />
+                    
+                    <Box paddingBlockStart="600">
+                        <Button
+                            variant={isCurrent ? "secondary" : (isPopular ? "primary" : "secondary")}
+                            disabled={isCurrent}
+                            loading={loading}
+                            onClick={() => onSelect(name)}
+                            fullWidth
+                        >
+                            {isCurrent ? "Current Plan" : (name === FREE_PLAN ? "Stay on Free" : "Upgrade Now")}
+                        </Button>
+                    </Box>
+                </div>
+            </Card>
+        </Box>
     );
 }
 
@@ -183,7 +224,7 @@ export default function Plans() {
                         <Card>
                             <BlockStack gap="200">
                                 <Text variant="headingMd" as="h2">Monthly Usage</Text>
-                                <Text as="p">You have used {usageCount} credits in your current billing cycle.</Text>
+                                <Text as="p">You have used <strong>{usageCount}</strong> credits in your current billing cycle.</Text>
                             </BlockStack>
                         </Card>
 
@@ -192,7 +233,7 @@ export default function Plans() {
                                 name={FREE_PLAN}
                                 price="0"
                                 credits={PLAN_CONFIG[FREE_PLAN].credits}
-                                features={["Product Descriptions", "SEO Meta Tags"]}
+                                features={["20 AI Generations", "Product Descriptions", "SEO Meta Tags", "Basic Support"]}
                                 isCurrent={currentPlan === FREE_PLAN}
                                 onSelect={handleSelectPlan}
                                 loading={isLoading}
@@ -201,21 +242,20 @@ export default function Plans() {
                                 name={PRO_PLAN}
                                 price="9.99"
                                 credits={PLAN_CONFIG[PRO_PLAN].credits}
-                                features={["Everything in Free", "Image Alt Text", "SEO Audit PDFs", "Brand Voice"]}
+                                features={["500 AI Generations", "Image Alt Text Generation", "SEO Health Audit PDFs", "Brand Voice Profiles"]}
                                 isCurrent={currentPlan === PRO_PLAN}
                                 onSelect={handleSelectPlan}
                                 loading={isLoading}
-                                isSpecial
                             />
                             <PlanCard
                                 name={ELITE_PLAN}
                                 price="24.99"
                                 credits={PLAN_CONFIG[ELITE_PLAN].credits}
-                                features={["Everything in Pro", "Bulk Optimization", "Priority Support", "Unlimited AI"]}
+                                features={["Unlimited AI Generations", "Bulk Optimization Mode", "Priority 24/7 Support", "Early Feature Access"]}
                                 isCurrent={currentPlan === ELITE_PLAN}
                                 onSelect={handleSelectPlan}
                                 loading={isLoading}
-                                isSpecial
+                                isPopular
                             />
                         </InlineGrid>
 
